@@ -13,13 +13,6 @@
 # the License.
 
 """This module implements the standard AFF4 Image."""
-from __future__ import division
-from __future__ import unicode_literals
-
-from builtins import range
-from builtins import str
-from past.utils import old_div
-from builtins import object
 import binascii
 import logging
 import lz4.block
@@ -29,7 +22,10 @@ import urllib
 from expiringdict import ExpiringDict
 
 from CryptoPlus.Cipher import python_AES
-import snappy
+try:
+    import snappy
+except ImportError:
+    snappy = None
 import zlib
 
 from pyaff4 import aff4
@@ -494,7 +490,7 @@ class AFF4Image(aff4.AFF4Stream):
             return result
 
     def reloadBevy(self, bevy_id):
-        if "AXIOMProcess" in self.version.tool:
+        if self.version is not None and "AXIOMProcess" in self.version.tool:
             # Axiom does strange stuff with paths and URNs, we need to fix the URN for reading bevys
             volume_urn = '/'.join(self.urn.SerializeToString().split('/')[0:3])
             original_filename = self.resolver.Get(volume_urn, self.urn, rdfvalue.URN(lexicon.standard11.pathName))[0]
@@ -614,7 +610,7 @@ class AFF4Image(aff4.AFF4Stream):
                     chunks_read += 1
                     continue
 
-            bevy_id = old_div(chunk_id, self.chunks_per_segment)
+            bevy_id = chunk_id // self.chunks_per_segment
             bevy_urn = self.urn.Append("%08d" % bevy_id)
 
             with self.resolver.AFF4FactoryOpen(bevy_urn, version=self.version) as bevy:
@@ -638,7 +634,7 @@ class AFF4Image(aff4.AFF4Stream):
                     chunks_read += 1
 
                     # This bevy is exhausted, get the next one.
-                    if bevy_id < old_div(chunk_id, self.chunks_per_segment):
+                    if bevy_id < chunk_id // self.chunks_per_segment:
                         break
 
         return chunks_read, result
@@ -708,7 +704,7 @@ class AFF4PreSImage(AFF4Image):
             bevy_id, hashes.toShortAlgoName(hash_datatype)))
 
     def readBlockHash(self, chunk_id, hash_datatype):
-        bevy_id = old_div(chunk_id, self.chunks_per_segment)
+        bevy_id = chunk_id // self.chunks_per_segment
         bevy_blockHash_urn = self._get_block_hash_urn(
             bevy_id, hash_datatype)
         blockLength = hashes.length(hash_datatype)

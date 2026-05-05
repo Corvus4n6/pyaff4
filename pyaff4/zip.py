@@ -13,12 +13,7 @@
 # the License.
 
 """An implementation of the ZipFile based AFF4 volume."""
-from __future__ import unicode_literals
 
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
-from builtins import object
 import copy
 import logging
 import io
@@ -888,9 +883,23 @@ class BasicZipFile(aff4.AFF4Volume):
             ## Backup Transient Store
             transient_store = copy.deepcopy(self.resolver.transient_store)
             self.parse_cd(self.backing_store_urn)
+            # Remember URN discovered by first parse in case container.description is absent
+            discovered_urn = self.urn
             # Restore Transient Store
             self.resolver.transient_store = transient_store
-            self.parse_cd(self.backing_store_urn, urn=self.resolver.loadZipURN(self))
+            try:
+                volume_urn = self.resolver.loadZipURN(self)
+            except IOError:
+                # container.description is absent (e.g. zip created via ZipFile directly);
+                # fall back to the URN already discovered from the central directory comment.
+                volume_urn = discovered_urn
+            self.parse_cd(self.backing_store_urn, urn=volume_urn)
+            # Ensure AFF4_STORED is always set for self.urn after the second parse.
+            # parse_cd skips the AFF4_STORED assignment when the URN didn't change,
+            # but the transient_store was restored to the backup above so it may be
+            # missing the entry for the real URN.
+            self.resolver.Set(lexicon.transient_graph, self.urn, lexicon.AFF4_STORED,
+                              rdfvalue.URN(self.backing_store_urn))
             self.resolver.loadMetadata(self)
         except IOError:
             # If we can not parse a CD from the zip file, this is fine, we just

@@ -15,11 +15,8 @@
 #
 # Author: Bradley L Schatz bradley@evimetry.com
 
-from __future__ import unicode_literals
 import tempfile
 
-from future import standard_library
-standard_library.install_aliases()
 import os
 import unittest
 
@@ -62,7 +59,7 @@ class ZipTest(unittest.TestCase):
                 backing_store_urn = resolver.GetUnique(lexicon.transient_graph, self.volume_urn, lexicon.AFF4_STORED)
                 with resolver.AFF4FactoryOpen(backing_store_urn) as backing_store:
                     print()
-                    self.assertEquals(93, backing_store.writeptr)
+                    self.assertEquals(133, backing_store.writeptr)
 
                 try:
                     zip_container.RemoveSegment("foo")
@@ -70,7 +67,7 @@ class ZipTest(unittest.TestCase):
                 except:
                     pass
 
-        self.assertEquals(687, os.stat(self.filename).st_size)
+        self.assertEquals(483, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testEditInplaceZip(self):
@@ -100,7 +97,7 @@ class ZipTest(unittest.TestCase):
                 with resolver.AFF4FactoryOpen(backing_store_urn) as backing_store:
                     print()
 
-        self.assertEquals(716, os.stat(self.filename).st_size)
+        self.assertEquals(512, os.stat(self.filename).st_size)
 
 
         with data_store.MemoryDataStore() as resolver:
@@ -114,7 +111,7 @@ class ZipTest(unittest.TestCase):
                     segment.SeekWrite(0,0)
                     segment.Write(b'0000')
 
-        self.assertEquals(716, os.stat(self.filename).st_size)
+        self.assertEquals(512, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testRemoveDoesRewind(self):
@@ -141,7 +138,7 @@ class ZipTest(unittest.TestCase):
                 backing_store_urn = resolver.GetUnique(lexicon.transient_graph, self.volume_urn, lexicon.AFF4_STORED)
                 with resolver.AFF4FactoryOpen(backing_store_urn) as backing_store:
                     print()
-                    self.assertEquals(93, backing_store.writeptr)
+                    self.assertEquals(133, backing_store.writeptr)
 
                 zip_container.RemoveSegment("bar")
 
@@ -167,7 +164,7 @@ class ZipTest(unittest.TestCase):
                 with zip_file.OpenZipSegment("nar") as segment:
                     self.assertEquals(self.data2, segment.Read(len(self.data2)))
 
-        self.assertEquals(736, os.stat(self.filename).st_size)
+        self.assertEquals(532, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testRemoveIsEmpty(self):
@@ -200,7 +197,7 @@ class ZipTest(unittest.TestCase):
                                                      quote=False)
                 self.assertFalse(zip_file.ContainsMember(segment_urn))
 
-        self.assertEquals(518, os.stat(self.filename).st_size)
+        self.assertEquals(274, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testRemoveThenReAdd(self):
@@ -236,7 +233,7 @@ class ZipTest(unittest.TestCase):
                 with zip_file.OpenMember(segment_urn) as segment:
                     self.assertEquals(self.data2, segment.Read(len(self.data2)))
 
-        self.assertEquals(629, os.stat(self.filename).st_size)
+        self.assertEquals(405, os.stat(self.filename).st_size)
 
 if __name__ == '__main__':
     unittest.main()

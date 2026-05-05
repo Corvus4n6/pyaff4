@@ -14,13 +14,7 @@
 #
 # Author: Bradley L Schatz bradley@evimetry.com
 
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import unicode_literals
 
-from builtins import next
-from builtins import str
-from builtins import object
 import binascii, rdflib, os
 from passlib.crypto import digest
 from pyaff4.aes_keywrap import aes_wrap_key, aes_unwrap_key

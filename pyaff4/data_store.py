@@ -13,17 +13,11 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from __future__ import print_function
-from __future__ import unicode_literals
-
-from builtins import str
-from builtins import object
 from os.path import expanduser
 import collections
 import logging
 import rdflib
 import re
-import six
 import os
 import tempfile
 import traceback
@@ -748,11 +742,11 @@ class MemoryDataStore(object):
         subject_regex = re.compile(utils.SmartStr(subject_regex))
 
         if graph == lexicon.any or graph == None:
-            storeitems = chain(six.iteritems(self.store), six.iteritems(self.transient_store))
+            storeitems = chain(self.store.items(), self.transient_store.items())
         elif graph == transient_graph:
-            storeitems = six.iteritems(self.transient_store)
+            storeitems = self.transient_store.items()
         else:
-            storeitems = six.iteritems(self.store)
+            storeitems = self.store.items()
 
         for subject in storeitems:
             if subject_regex is not None and subject_regex.match(subject):
@@ -763,14 +757,14 @@ class MemoryDataStore(object):
         predicate = utils.SmartStr(predicate)
 
         if graph == lexicon.any or graph == None:
-            storeitems = chain(six.iteritems(self.store), six.iteritems(self.transient_store))
+            storeitems = chain(self.store.items(), self.transient_store.items())
         elif graph == transient_graph:
-            storeitems = six.iteritems(self.transient_store)
+            storeitems = self.transient_store.items()
         else:
-            storeitems = six.iteritems(self.store)
+            storeitems = self.store.items()
 
         for subject, data in storeitems:
-            for pred, values in six.iteritems(data):
+            for pred, values in data.items():
                 if pred == predicate:
                     if type(values) != type([]):
                         values = [values]
@@ -784,11 +778,11 @@ class MemoryDataStore(object):
         predicate = utils.SmartUnicode(predicate)
 
         if graph == lexicon.any or graph == None:
-            storeitems = chain(six.iteritems(self.store), six.iteritems(self.transient_store))
+            storeitems = chain(self.store.items(), self.transient_store.items())
         elif graph == transient_graph:
-            storeitems = six.iteritems(self.transient_store)
+            storeitems = self.transient_store.items()
         else:
-            storeitems = six.iteritems(self.store)
+            storeitems = self.store.items()
 
         for subject, data in list(storeitems):
             for pred, value in list(data.items()):
@@ -839,11 +833,11 @@ class MemoryDataStore(object):
         prefix = utils.SmartUnicode(prefix)
 
         if graph == lexicon.any or graph == None:
-            storeitems = chain(six.iteritems(self.store), six.iteritems(self.transient_store))
+            storeitems = chain(self.store.items(), self.transient_store.items())
         elif graph == transient_graph:
-            storeitems = six.iteritems(self.transient_store)
+            storeitems = self.transient_store.items()
         else:
-            storeitems = six.iteritems(self.store)
+            storeitems = self.store.items()
 
         for subject, predicateDict in storeitems:
             if subject.startswith(prefix):

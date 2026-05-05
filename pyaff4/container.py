@@ -1,6 +1,3 @@
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import unicode_literals
 # Copyright 2016-2018 Schatz Forensic Pty Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,9 +12,6 @@ from __future__ import unicode_literals
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from builtins import next
-from builtins import str
-from builtins import object
 
 from pyaff4.utils import SmartStr, SmartUnicode
 from pyaff4 import data_store, aff4_image
@@ -35,7 +29,10 @@ from pyaff4 import utils
 import yaml
 import uuid
 import base64
-import fastchunking
+try:
+    import fastchunking
+except ImportError:
+    fastchunking = None
 
 class Image(object):
     def __init__(self, image, resolver, dataStream):
@@ -514,6 +511,10 @@ class WritableHashBasedImageContainer(WritableLogicalImageContainer):
             logical_file_id = self.urn.Append(escaping.arnPathFragment_from_path(filename), quote=False)
 
         chunk_size = 32*1024
+        if fastchunking is None:
+            raise RuntimeError(
+                "fastchunking is required for deduplication. "
+                "Install it with: pip install pyaff4[cdc]")
         cdc = fastchunking.RabinKarpCDC(window_size=48, seed=0)
         chunker = cdc.create_chunker(chunk_size=4096)
 

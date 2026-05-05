@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2019 Schatz Forensic Pty. Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -14,8 +13,6 @@ from __future__ import unicode_literals
 # the License.
 import tempfile
 
-from future import standard_library
-standard_library.install_aliases()
 
 import unittest
 import os

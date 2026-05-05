@@ -14,12 +14,8 @@
 #
 # Author: Bradley L Schatz bradley@evimetry.com
 
-from __future__ import unicode_literals
 import tempfile
 
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
 import os
 import io
 import unittest

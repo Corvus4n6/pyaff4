@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -14,8 +13,6 @@ from __future__ import unicode_literals
 # the License.
 
 
-from future import standard_library
-standard_library.install_aliases()
 from pyaff4 import aff4
 from pyaff4 import data_store
 from pyaff4 import lexicon

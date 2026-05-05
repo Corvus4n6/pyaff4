@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 from pyaff4 import rdfvalue
 import unittest
 

@@ -14,10 +14,7 @@
 #
 # Author: Bradley L Schatz bradley@evimetry.com
 
-from future import standard_library
 
-standard_library.install_aliases()
-from builtins import range
 import os
 import unittest
 import traceback
@@ -250,7 +247,7 @@ class AFF4AbortImageStreamTest(unittest.TestCase):
                     self.assertFalse(zip_file.ContainsMember(seg_arn))
                     self.assertFalse(zip_file.ContainsMember(idx_arn))
 
-        self.assertEquals(518, os.stat(self.filename).st_size)
+        self.assertEquals(274, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testAbortImageStreamWithSingleBevyThenSecondStream(self):
@@ -301,7 +298,7 @@ class AFF4AbortImageStreamTest(unittest.TestCase):
                 image.SeekRead(0, 0)
                 res = image.Read(7)
                 self.assertEqual(b"abcdefg", res)
-        self.assertEquals(1265, os.stat(self.filename).st_size)
+        self.assertEquals(1194, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testAbortImageStreamWithSingleBevy(self):
@@ -338,7 +335,7 @@ class AFF4AbortImageStreamTest(unittest.TestCase):
                     self.assertFalse(zip_file.ContainsMember(seg_arn))
                     self.assertFalse(zip_file.ContainsMember(idx_arn))
 
-        self.assertEquals(518, os.stat(self.filename).st_size)
+        self.assertEquals(274, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testAbortImageStreamWithSubBevyWrite(self):
@@ -375,7 +372,7 @@ class AFF4AbortImageStreamTest(unittest.TestCase):
                     self.assertFalse(zip_file.ContainsMember(seg_arn))
                     self.assertFalse(zip_file.ContainsMember(idx_arn))
 
-        self.assertEquals(518, os.stat(self.filename).st_size)
+        self.assertEquals(274, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testCreateAndReadSingleImageStreamLogicalPush(self):

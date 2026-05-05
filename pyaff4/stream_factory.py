@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2016,2017 Schatz Forensic Pty Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -13,8 +12,6 @@ from __future__ import unicode_literals
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from builtins import str
-from builtins import object
 from pyaff4.symbolic_streams import  *
 from pyaff4 import rdfvalue
 import re

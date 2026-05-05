@@ -15,12 +15,6 @@
 # Author: Bradley L Schatz bradley@evimetry.com
 
 """This module implements the standard AFF4 Image."""
-from __future__ import division
-from __future__ import unicode_literals
-from builtins import range
-from builtins import str
-from past.utils import old_div
-from builtins import object
 import binascii
 import logging
 import struct

@@ -15,7 +15,6 @@
 """This module installs the pyaff4 library."""
 
 from setuptools import setup
-from setuptools.command.test import test as TestCommand
 
 try:
     with open('README.md') as file:
@@ -29,37 +28,23 @@ exec(open("pyaff4/_version.py").read(), ENV)
 VERSION = ENV["get_versions"]()
 
 with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-
-class NoseTestCommand(TestCommand):
-    def finalize_options(self):
-        TestCommand.finalize_options(self)
-        self.test_args = []
-        self.test_suite = True
-
-    def run_tests(self):
-        # Run nose ensuring that argv simulates running nosetests directly
-        import nose
-        nose.run_exit(argv=['nosetests'])
-
-
-commands = {}
-commands["test"] = NoseTestCommand
+    requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
 setup(
     name='pyaff4',
     long_description=long_description,
     long_description_content_type="text/markdown",
     version=VERSION["pep440"],
-    cmdclass=commands,
     description='Advanced Forensic Format Version 4 (AFF4) Python module.',
     author='Michael Cohen, Bradley Schatz',
     author_email='scudette@gmail.com, bradley@evimetry.com',
     url='https://www.aff4.org/',
     packages=['pyaff4'],
     package_dir={"pyaff4": "pyaff4"},
+    python_requires=">=3.11",
     install_requires=requirements,
     extras_require=dict(
-        cloud="google-api-python-client"
-    )
+        cloud="google-api-python-client",
+        cdc="fastchunking==0.0.3",
+    ),
 )

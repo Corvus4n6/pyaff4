@@ -13,12 +13,6 @@
 # the License.
 
 """This is the python AFF4 library."""
-from __future__ import division
-from __future__ import unicode_literals
-from builtins import next
-from builtins import str
-from past.utils import old_div
-from builtins import object
 import platform
 import sys
 import time
@@ -349,7 +343,7 @@ class ProgressContext(object):
         """
         readptr = readptr + self.start
         now = self.now()
-        if now > self.last_time + old_div(1000000,4):
+        if now > self.last_time + 1000000 // 4:
             # Rate in MB/s.
             rate = ((readptr - self.last_offset) /
                     (now - self.last_time) * 1000000 / 1024/1024)

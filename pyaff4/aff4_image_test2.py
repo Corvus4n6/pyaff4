@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2014 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -14,9 +13,6 @@ from __future__ import unicode_literals
 # the License.
 import tempfile
 
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
 import os
 import io
 import unittest

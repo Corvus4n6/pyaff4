@@ -14,9 +14,6 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from __future__ import unicode_literals
-from future import standard_library
-standard_library.install_aliases()
 import os
 import unittest
 

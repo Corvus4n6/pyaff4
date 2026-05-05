@@ -13,7 +13,6 @@
 # the License.
 
 """This module implements the Directory AFF4 Volume."""
-from __future__ import unicode_literals
 import logging
 import os
 
