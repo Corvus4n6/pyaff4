@@ -55,7 +55,7 @@ class CryptoTest(unittest.TestCase):
         g.parse(data=keybagturtle, format="turtle")
 
         kb = keybag.PasswordWrappedKeyBag.load(g)
-        self.assertEquals(wrapped, kb.wrappedKey)
+        self.assertEqual(wrapped, kb.wrappedKey)
 
     def testExtractWrappedKey(self):
         wrapped = binascii.unhexlify("5934f7d07e75f5ab55b9051ebd39331dbfba3c597589b203728043577bf93badeb9f07f528c8bd95")
@@ -68,9 +68,9 @@ class CryptoTest(unittest.TestCase):
 
         key = "password"
         kek = digest.pbkdf2_hmac("sha256", key, kb.salt, kb.iterations, kb.keySizeBytes);
-        self.assertEquals(target_kek, kek)
+        self.assertEqual(target_kek, kek)
         vek = aes_unwrap_key(kek, kb.wrappedKey)
-        self.assertEquals(target_vek, vek)
+        self.assertEqual(target_vek, vek)
 
     def testEncrypt(self):
         vek = binascii.unhexlify("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
@@ -157,5 +157,5 @@ class CryptoTest(unittest.TestCase):
         key = RSA.importKey(open(privateKey).read())
         cipher = PKCS1_OAEP.new(key=key, hashAlgo=SHA256, mgfunc=lambda x, y: pss.MGF1(x, y, SHA1))
         vek2 = cipher.decrypt(ciphertext)
-        self.assertEquals(vek, vek2)
+        self.assertEqual(vek, vek2)
 

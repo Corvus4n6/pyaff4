@@ -34,7 +34,7 @@ try:
 except ImportError:
     fastchunking = None
 
-class Image(object):
+class Image:
     def __init__(self, image, resolver, dataStream):
         self.image = image
         self.urn = image.urn
@@ -53,7 +53,7 @@ def parseProperties(propertiesText):
     return res
 
 
-class Container(object):
+class Container:
     def __init__(self, backing_store, zip_file, version, volumeURN, resolver, lex):
         self.urn = volumeURN
         self.lexicon = lex

@@ -61,7 +61,7 @@ def CHECK(condition, error):
     if not condition:
         raise RuntimeError(error)
 
-class AFF4ObjectCacheEntry(object):
+class AFF4ObjectCacheEntry:
     def __init__(self, key, aff4_obj):
         self.next = self.prev = self
         self.key = key
@@ -90,7 +90,7 @@ class AFF4ObjectCacheEntry(object):
             entry = entry.next
 
 
-class AFF4ObjectCache(object):
+class AFF4ObjectCache:
     def __init__(self, max_items):
         self.max_items = max_items
         self.in_use = {}
@@ -165,8 +165,6 @@ class AFF4ObjectCache(object):
         return entry.aff4_obj
 
     def Return(self, aff4_obj):
-        if type(aff4_obj) == aff4_image.AFF4SImage:
-            print
         if type(aff4_obj) == aff4_map.ByteRangeARN:
             return
         key = aff4_obj.urn.SerializeToString()
@@ -186,8 +184,6 @@ class AFF4ObjectCache(object):
             self._Trim()
 
     def Remove(self, aff4_obj):
-        if type(aff4_obj) == aff4_image.AFF4SImage:
-            print
         key = aff4_obj.urn.SerializeToString()
         #LOGGER.debug("Removing %s in cache" % key)
         entry = self.lru_map.pop(key, None)
@@ -254,7 +250,7 @@ class AFF4ObjectCache(object):
         # Clear the map.
         self.lru_map.clear()
 
-class MemoryDataStore(object):
+class MemoryDataStore:
     aff4NS = None
 
     def __init__(self, lex=lexicon.standard, parent=None):

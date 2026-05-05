@@ -138,7 +138,7 @@ class ZipFileHeader(struct_parser.CreateStruct(
         return self.magic == 0x4034b50
 
 # see APPNOTE.txt 4.5.3 -Zip64 Extended Information Extra Field (0x0001):
-class Zip64FileHeaderExtensibleField(object):
+class Zip64FileHeaderExtensibleField:
     fields = [
         ["uint16_t", "header_id", 1],
         ["uint16_t", "data_size", 0],
@@ -272,7 +272,7 @@ class Zip64CDLocator(struct_parser.CreateStruct(
                 self.number_of_disks == 1)
 
 
-class ZipInfo(object):
+class ZipInfo:
     def __init__(self, compression_method=0, compress_size=0,
                  file_size=0, filename="", local_header_offset=0,
                  crc32=0, lastmoddate=0, lastmodtime=0):
@@ -372,7 +372,7 @@ class ZipInfo(object):
             backing_store.write(extra_header_64.Pack())
 
 
-class FileWrapper(object):
+class FileWrapper:
     """Maps a slice from a file URN."""
 
     def __init__(self, resolver, file_urn, slice_offset, slice_size):

@@ -102,18 +102,18 @@ class ReferenceTest(unittest.TestCase):
                 image_urn = sourceContainer.urn.Append("pdf1")
                 with resolver.AFF4FactoryOpen(image_urn) as image:
                     # check the size is right
-                    self.assertEquals(629087, image.Size())
+                    self.assertEqual(629087, image.Size())
 
                     # read the header of the virtual file
                     image.SeekRead(0, 0)
-                    self.assertEquals(b"%PDF", image.Read(4))
+                    self.assertEqual(b"%PDF", image.Read(4))
 
                     # read the whole virtual file and compare with a known hash of it
                     image.SeekRead(0, 0)
                     buf = image.Read(629087)
                     hash = hashes.new(lexicon.HASH_SHA1)
                     hash.update(buf)
-                    self.assertEquals("5A2FEE16139C7B017B7F1961D842D355A860C7AC".lower(), hash.hexdigest())
+                    self.assertEqual("5A2FEE16139C7B017B7F1961D842D355A860C7AC".lower(), hash.hexdigest())
 
 
 

@@ -93,29 +93,29 @@ class AFF4ImageTest(unittest.TestCase):
             image_urn = zip_file.urn.Append(self.image_name)
 
         with resolver.AFF4FactoryOpen(image_urn) as image:
-            self.assertEquals(image.chunk_size, 10)
-            self.assertEquals(image.chunks_per_segment, 3)
-            self.assertEquals(
+            self.assertEqual(image.chunk_size, 10)
+            self.assertEqual(image.chunks_per_segment, 3)
+            self.assertEqual(
                 b"Hello world 00!Hello world 01!Hello world 02!Hello world 03!" +
                 b"Hello world 04!Hello world 05!Hello worl",
                 image.Read(100))
 
-            self.assertEquals(1500, image.Size())
+            self.assertEqual(1500, image.Size())
 
         # Now test snappy decompression.
         with resolver.AFF4FactoryOpen(self.image_urn_2) as image_2:
-            self.assertEquals(
+            self.assertEqual(
                 resolver.GetUnique(zip_file.urn, image_2.urn, lexicon.AFF4_IMAGE_COMPRESSION),
                 lexicon.AFF4_IMAGE_COMPRESSION_SNAPPY)
 
             data = image_2.Read(100)
-            self.assertEquals(data, b"This is a test")
+            self.assertEqual(data, b"This is a test")
 
         # Now test streaming API image.
         with resolver.AFF4FactoryOpen(self.image_urn_3) as image_3:
-            self.assertEquals(image_3.chunk_size, 10)
-            self.assertEquals(image_3.chunks_per_segment, 3)
-            self.assertEquals(
+            self.assertEqual(image_3.chunk_size, 10)
+            self.assertEqual(image_3.chunks_per_segment, 3)
+            self.assertEqual(
                 b"Hello world 00!Hello world 01!Hello world 02!Hello world 03!"+
                 b"Hello world 04!Hello world 05!Hello worl",
                 image_3.Read(100))

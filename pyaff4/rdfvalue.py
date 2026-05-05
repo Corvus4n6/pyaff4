@@ -28,7 +28,7 @@ from pyaff4 import utils
 # pylint: disable=protected-access
 
 
-class Memoize(object):
+class Memoize:
     def __call__(self, f):
         f.memo_pad = {}
 
@@ -46,7 +46,7 @@ class Memoize(object):
         return Wrapped
 
 
-class RDFValue(object):
+class RDFValue:
     datatype = ""
 
     def __init__(self, initializer=None):
@@ -162,12 +162,6 @@ class XSDInteger(RDFValue):
 
     def __int__(self):
         return self.value
-
-    def __long__(self):
-        return int(self.value)
-
-    def __cmp__(self, o):
-        return self.value - o.value
 
     def __add__(self, o):
         return self.value + o
@@ -396,11 +390,6 @@ class URN(RDFValue):
     def __ne__(self, other):
         #return utils.SmartStr(self) == utils.SmartStr(other)
         return utils.SmartUnicode(self.value) != utils.SmartUnicode(other)
-
-def AssertURN(urn):
-    if not isinstance(urn, URN):
-        raise TypeError("Expecting a URN.")
-
 
 def AssertURN(urn):
     if not isinstance(urn, URN):

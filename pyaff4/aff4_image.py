@@ -38,7 +38,7 @@ from pyaff4 import hashes, zip
 LOGGER = logging.getLogger("pyaff4")
 DEBUG = False
 
-class _CompressorStream(object):
+class _CompressorStream:
     """A stream which chunks up another stream.
 
     Each read() operation will return a compressed chunk.

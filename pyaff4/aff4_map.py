@@ -101,7 +101,7 @@ class Range(collections.namedtuple(
         return self._replace(length=self.length - adjustment)
 
 
-class _MapStreamHelper(object):
+class _MapStreamHelper:
 
     def __init__(self, resolver, source, destination):
         self.resolver = resolver

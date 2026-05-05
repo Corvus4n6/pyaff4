@@ -60,7 +60,7 @@ class ZipTest(unittest.TestCase):
         with zip.ZipFile.NewZipFile(resolver, version.aff4v11, self.filename_urn) as zip_file:
             segment_urn = zip_file.urn.Append(self.segment_name, quote=False)
         with resolver.AFF4FactoryOpen(segment_urn) as segment:
-            self.assertEquals(segment.Read(1000), self.data1 )
+            self.assertEqual(segment.Read(1000), self.data1 )
 
 if __name__ == '__main__':
     unittest.main()

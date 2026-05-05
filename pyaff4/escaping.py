@@ -33,7 +33,7 @@ PRINTABLES_NO_SLASH = PRINTABLES.copy()
 PRINTABLES_NO_SLASH.discard('/')
 
 FORBIDDEN = set()
-for c in "<>\^`{|}":
+for c in r"<>\^`{|}":
     FORBIDDEN.add(c)
 
 # convert a file path to an ARN fragment

@@ -62,7 +62,7 @@ class AFF4ImageTest(unittest.TestCase):
                     image.chunk_size = 5
                     image.chunks_per_segment = 2
                     image.Write(b"abcdeabcdea")
-                    self.assertEquals(b"abcde", image.Read(5))
+                    self.assertEqual(b"abcde", image.Read(5))
 
         with data_store.MemoryDataStore() as resolver:
             with zip.ZipFile.NewZipFile(resolver, version, self.filename_urn) as zip_file:
@@ -70,7 +70,7 @@ class AFF4ImageTest(unittest.TestCase):
 
                 self.image_urn_2 = self.image_urn.Append("2")
                 with resolver.AFF4FactoryOpen(self.image_urn_2) as image:
-                    self.assertEquals(11, image.Size())
+                    self.assertEqual(11, image.Size())
                     self.assertEqual(b"abcdeabcdea", image.ReadAll())
 
 if __name__ == '__main__':

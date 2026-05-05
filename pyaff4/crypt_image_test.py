@@ -358,24 +358,24 @@ class AFF4ImageTest(unittest.TestCase):
             volume_urn = zip_file.urn
 
             with resolver.AFF4FactoryOpen(image_urn) as image:
-                self.assertEquals(image.chunk_size, 512)
-                self.assertEquals(image.chunks_per_segment, 1024)
+                self.assertEqual(image.chunk_size, 512)
+                self.assertEqual(image.chunks_per_segment, 1024)
 
                 kbARN = resolver.GetUnique(volume_urn, image.urn, lex.keyBag)
                 kb = keybag.KeyBag.loadFromResolver(resolver, zip_file.urn, kbARN)
                 image.setKeyBag(kb)
                 image.setKey(kb.unwrap_key("password"))
 
-                self.assertEquals(src, image.Read(len(src)))
+                self.assertEqual(src, image.Read(len(src)))
 
                 image.SeekRead(137)
-                self.assertEquals(src, image.Read(len(src)))
+                self.assertEqual(src, image.Read(len(src)))
 
                 # read from chunk 2
                 image.SeekRead(548)
-                self.assertEquals(src, image.Read(len(src)))
+                self.assertEqual(src, image.Read(len(src)))
 
-                self.assertEquals(len(src)*100, image.Size())
+                self.assertEqual(len(src)*100, image.Size())
 
 
 

@@ -63,13 +63,13 @@ class AFF4DirectoryTest(unittest.TestCase):
                 # Check for member.
                 child_urn = directory.urn.Append(self.segment_name)
                 with resolver.AFF4FactoryOpen(child_urn) as child:
-                    self.assertEquals(child.Read(10000), b"Hello world")
+                    self.assertEqual(child.Read(10000), b"Hello world")
 
                 # Check that the metadata is carried over.
                 filename = resolver.Get(
                     child_urn, lexicon.AFF4_STREAM_ORIGINAL_FILENAME)
 
-                self.assertEquals(filename, self.root_path + self.segment_name)
+                self.assertEqual(filename, self.root_path + self.segment_name)
 
 if __name__ == '__main__':
     #logging.getLogger().setLevel(logging.DEBUG)

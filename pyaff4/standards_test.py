@@ -54,21 +54,21 @@ class StandardsTest(unittest.TestCase):
             for subject in resolver.QueryPredicateObject(zip_file.urn,
                     "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
                     "http://aff4.org/Schema#DiskImage"):
-                self.assertEquals(
+                self.assertEqual(
                     subject,
                     "aff4://cf853d0b-5589-4c7c-8358-2ca1572b87eb")
 
             for subject in resolver.QueryPredicateObject(zip_file.urn,
                     "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
                     "http://aff4.org/Schema#Image"):
-                self.assertEquals(
+                self.assertEqual(
                     subject,
                     "aff4://cf853d0b-5589-4c7c-8358-2ca1572b87eb")
 
             for subject in resolver.QueryPredicateObject(zip_file.urn,
                     "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
                     "http://aff4.org/Schema#ContiguousImage"):
-                self.assertEquals(
+                self.assertEqual(
                     subject,
                     "aff4://cf853d0b-5589-4c7c-8358-2ca1572b87eb")
 
@@ -82,7 +82,7 @@ class StandardsTest(unittest.TestCase):
 
             imageStream.SeekRead(0x163)
             res = imageStream.Read(17)
-            self.assertEquals(res, b"Invalid partition")
+            self.assertEqual(res, b"Invalid partition")
 
     @conditional_on_images
     def testReadImageStream(self):
@@ -94,7 +94,7 @@ class StandardsTest(unittest.TestCase):
 
             mapStream.SeekRead(0x163)
             res = mapStream.Read(17)
-            self.assertEquals(res, b"Invalid partition")
+            self.assertEqual(res, b"Invalid partition")
 
 
 if __name__ == '__main__':

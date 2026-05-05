@@ -120,7 +120,7 @@ class AFF4ImageTest(unittest.TestCase):
 
                     image.Write(b"ab")
                     image.Trim(1)
-                    self.assertEquals(1, image.size)
+                    self.assertEqual(1, image.size)
 
         with data_store.MemoryDataStore() as resolver:
             with zip.ZipFile.NewZipFile(resolver, version, self.filename_urn) as zip_file:

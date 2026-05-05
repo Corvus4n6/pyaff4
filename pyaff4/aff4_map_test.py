@@ -106,8 +106,8 @@ class AFF4MapTest(unittest.TestCase):
 
             # Should be merged into a single range.
             ranges = map.GetRanges()
-            self.assertEquals(len(ranges), 1)
-            self.assertEquals(ranges[0].length, 110)
+            self.assertEqual(len(ranges), 1)
+            self.assertEqual(ranges[0].length, 110)
 
             map.Clear()
 
@@ -117,8 +117,8 @@ class AFF4MapTest(unittest.TestCase):
             map.AddRange(50, 0, 100, a)
 
             ranges = map.GetRanges()
-            self.assertEquals(len(ranges), 2)
-            self.assertEquals(ranges[0].length, 50)
+            self.assertEqual(len(ranges), 2)
+            self.assertEqual(ranges[0].length, 50)
 
             # Inserted region. Should split existing region into three.
             map.Clear()
@@ -127,23 +127,23 @@ class AFF4MapTest(unittest.TestCase):
             map.AddRange(50, 0, 10, b)
 
             ranges = map.GetRanges()
-            self.assertEquals(len(ranges), 3)
-            self.assertEquals(ranges[0].length, 50)
-            self.assertEquals(ranges[0].target_id, 0)
+            self.assertEqual(len(ranges), 3)
+            self.assertEqual(ranges[0].length, 50)
+            self.assertEqual(ranges[0].target_id, 0)
 
-            self.assertEquals(ranges[1].length, 10)
-            self.assertEquals(ranges[1].target_id, 1)
+            self.assertEqual(ranges[1].length, 10)
+            self.assertEqual(ranges[1].target_id, 1)
 
-            self.assertEquals(ranges[2].length, 40)
-            self.assertEquals(ranges[2].target_id, 0)
+            self.assertEqual(ranges[2].length, 40)
+            self.assertEqual(ranges[2].target_id, 0)
 
             # New range overwrites all the old ranges.
             map.AddRange(0, 0, 100, b)
 
             ranges = map.GetRanges()
-            self.assertEquals(len(ranges), 1)
-            self.assertEquals(ranges[0].length, 100)
-            self.assertEquals(ranges[0].target_id, 1)
+            self.assertEqual(len(ranges), 1)
+            self.assertEqual(ranges[0].length, 100)
+            self.assertEqual(ranges[0].target_id, 1)
 
 
             # Simulate writing contiguous regions. These should be merged into a
@@ -156,9 +156,9 @@ class AFF4MapTest(unittest.TestCase):
             map.AddRange(30, 130, 10, a)
 
             ranges = map.GetRanges()
-            self.assertEquals(len(ranges), 1)
-            self.assertEquals(ranges[0].length, 40)
-            self.assertEquals(ranges[0].target_id, 0)
+            self.assertEqual(len(ranges), 1)
+            self.assertEqual(ranges[0].length, 40)
+            self.assertEqual(ranges[0].target_id, 0)
 
             # Writing sparse image.
             map.Clear()
@@ -167,18 +167,18 @@ class AFF4MapTest(unittest.TestCase):
             map.AddRange(30, 130, 10, a)
 
             ranges = map.GetRanges()
-            self.assertEquals(len(ranges), 2)
-            self.assertEquals(ranges[0].length, 10)
-            self.assertEquals(ranges[0].target_id, 0)
-            self.assertEquals(ranges[1].length, 10)
-            self.assertEquals(ranges[1].map_offset, 30)
-            self.assertEquals(ranges[1].target_id, 0)
+            self.assertEqual(len(ranges), 2)
+            self.assertEqual(ranges[0].length, 10)
+            self.assertEqual(ranges[0].target_id, 0)
+            self.assertEqual(ranges[1].length, 10)
+            self.assertEqual(ranges[1].map_offset, 30)
+            self.assertEqual(ranges[1].target_id, 0)
 
             # Now merge. Adding the missing region makes the image not sparse.
             map.AddRange(10, 110, 20, a)
             ranges = map.GetRanges()
-            self.assertEquals(len(ranges), 1)
-            self.assertEquals(ranges[0].length, 40)
+            self.assertEqual(len(ranges), 1)
+            self.assertEqual(ranges[0].length, 40)
 
     def testCreateMapStream(self):
         resolver = data_store.MemoryDataStore()
@@ -197,41 +197,41 @@ class AFF4MapTest(unittest.TestCase):
 
     def CheckStremImageURN(self, resolver, image_urn_2):
         with resolver.AFF4FactoryOpen(image_urn_2) as map:
-            self.assertEquals(map.Size(), 16)
-            self.assertEquals(map.Read(100), b"DDDDAAAA\x00\x00\x00\x00EEEE")
+            self.assertEqual(map.Size(), 16)
+            self.assertEqual(map.Read(100), b"DDDDAAAA\x00\x00\x00\x00EEEE")
 
         # The data stream should be packed without gaps.
         with resolver.AFF4FactoryOpen(image_urn_2.Append("data")) as image:
-            self.assertEquals(image.Read(100), b"DDDDAAAAEEEE")
+            self.assertEqual(image.Read(100), b"DDDDAAAAEEEE")
 
     def CheckImageURN(self, resolver, image_urn):
         with resolver.AFF4FactoryOpen(image_urn) as map:
             map.SeekRead(50)
-            self.assertEquals(map.Read(2), b"50")
+            self.assertEqual(map.Read(2), b"50")
 
             map.SeekRead(0)
-            self.assertEquals(map.Read(2), b"00")
+            self.assertEqual(map.Read(2), b"00")
 
             ranges = map.GetRanges()
-            self.assertEquals(len(ranges), 3)
-            self.assertEquals(ranges[0].length, 26)
-            self.assertEquals(ranges[0].map_offset, 0)
-            self.assertEquals(ranges[0].target_offset, 26)
+            self.assertEqual(len(ranges), 3)
+            self.assertEqual(ranges[0].length, 26)
+            self.assertEqual(ranges[0].map_offset, 0)
+            self.assertEqual(ranges[0].target_offset, 26)
 
             # This is the extra "overwritten" 2 bytes which were appended to the
             # end of the target stream and occupy the map range from 50-52.
-            self.assertEquals(ranges[1].length, 2)
-            self.assertEquals(ranges[1].map_offset, 50)
-            self.assertEquals(ranges[1].target_offset, 52)
+            self.assertEqual(ranges[1].length, 2)
+            self.assertEqual(ranges[1].map_offset, 50)
+            self.assertEqual(ranges[1].target_offset, 52)
 
-            self.assertEquals(ranges[2].length, 24)
-            self.assertEquals(ranges[2].map_offset, 52)
-            self.assertEquals(ranges[2].target_offset, 2)
+            self.assertEqual(ranges[2].length, 24)
+            self.assertEqual(ranges[2].map_offset, 52)
+            self.assertEqual(ranges[2].target_offset, 2)
 
             # Test that reads outside the ranges null pad correctly.
             map.SeekRead(48)
             read_string = map.Read(4)
-            self.assertEquals(read_string, b"\x00\x0050")
+            self.assertEqual(read_string, b"\x00\x0050")
 
 
 if __name__ == '__main__':

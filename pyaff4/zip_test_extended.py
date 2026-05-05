@@ -59,7 +59,7 @@ class ZipTest(unittest.TestCase):
                 backing_store_urn = resolver.GetUnique(lexicon.transient_graph, self.volume_urn, lexicon.AFF4_STORED)
                 with resolver.AFF4FactoryOpen(backing_store_urn) as backing_store:
                     print()
-                    self.assertEquals(133, backing_store.writeptr)
+                    self.assertEqual(133, backing_store.writeptr)
 
                 try:
                     zip_container.RemoveSegment("foo")
@@ -67,7 +67,7 @@ class ZipTest(unittest.TestCase):
                 except:
                     pass
 
-        self.assertEquals(483, os.stat(self.filename).st_size)
+        self.assertEqual(483, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testEditInplaceZip(self):
@@ -97,7 +97,7 @@ class ZipTest(unittest.TestCase):
                 with resolver.AFF4FactoryOpen(backing_store_urn) as backing_store:
                     print()
 
-        self.assertEquals(512, os.stat(self.filename).st_size)
+        self.assertEqual(512, os.stat(self.filename).st_size)
 
 
         with data_store.MemoryDataStore() as resolver:
@@ -111,7 +111,7 @@ class ZipTest(unittest.TestCase):
                     segment.SeekWrite(0,0)
                     segment.Write(b'0000')
 
-        self.assertEquals(512, os.stat(self.filename).st_size)
+        self.assertEqual(512, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testRemoveDoesRewind(self):
@@ -138,7 +138,7 @@ class ZipTest(unittest.TestCase):
                 backing_store_urn = resolver.GetUnique(lexicon.transient_graph, self.volume_urn, lexicon.AFF4_STORED)
                 with resolver.AFF4FactoryOpen(backing_store_urn) as backing_store:
                     print()
-                    self.assertEquals(133, backing_store.writeptr)
+                    self.assertEqual(133, backing_store.writeptr)
 
                 zip_container.RemoveSegment("bar")
 
@@ -159,12 +159,12 @@ class ZipTest(unittest.TestCase):
                 self.assertTrue(zip_file.ContainsSegment("nar"))
 
                 with zip_file.OpenZipSegment("foo") as segment:
-                    self.assertEquals(self.data1, segment.Read(len(self.data1)))
+                    self.assertEqual(self.data1, segment.Read(len(self.data1)))
 
                 with zip_file.OpenZipSegment("nar") as segment:
-                    self.assertEquals(self.data2, segment.Read(len(self.data2)))
+                    self.assertEqual(self.data2, segment.Read(len(self.data2)))
 
-        self.assertEquals(532, os.stat(self.filename).st_size)
+        self.assertEqual(532, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testRemoveIsEmpty(self):
@@ -197,7 +197,7 @@ class ZipTest(unittest.TestCase):
                                                      quote=False)
                 self.assertFalse(zip_file.ContainsMember(segment_urn))
 
-        self.assertEquals(274, os.stat(self.filename).st_size)
+        self.assertEqual(274, os.stat(self.filename).st_size)
 
     #@unittest.skip
     def testRemoveThenReAdd(self):
@@ -231,9 +231,9 @@ class ZipTest(unittest.TestCase):
                 self.assertTrue(zip_file.ContainsMember(segment_urn))
 
                 with zip_file.OpenMember(segment_urn) as segment:
-                    self.assertEquals(self.data2, segment.Read(len(self.data2)))
+                    self.assertEqual(self.data2, segment.Read(len(self.data2)))
 
-        self.assertEquals(405, os.stat(self.filename).st_size)
+        self.assertEqual(405, os.stat(self.filename).st_size)
 
 if __name__ == '__main__':
     unittest.main()
