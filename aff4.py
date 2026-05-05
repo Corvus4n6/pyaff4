@@ -13,14 +13,6 @@
 # the License.
 # author bradley@evimetry.com
 
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
-from builtins import next
-from builtins import str
-from builtins import object
-
 import argparse
 import sys, os, errno, shutil, uuid
 import time
@@ -115,6 +107,9 @@ def printDiskImageInfo(file, volume):
     printCaseInfo(volume)
 
     image = volume.getMetadata("DiskImage")
+    if image is None:
+        print("\t(no DiskImage metadata found)")
+        return
     print ("\t%s (DiskImage)" % image.urn)
     print ("\t\tSize: %s (bytes)" % image.size)
     print ("\t\tSize: %s (bytes)" % image.size)
@@ -132,7 +127,7 @@ def printDiskImageInfo(file, volume):
         print ("\t\tUnknownproperty: %s" % computerInfo.foobar)
 
 
-class VerificationListener(object):
+class VerificationListener:
     def __init__(self):
         self.results = []
 
@@ -148,7 +143,7 @@ class VerificationListener(object):
     def onInvalidHash(self, typ, a, b, streamURI):
         self.results.append("Invalid %s comarison for stream %s" % (typ, streamURI))
 
-class LinearVerificationListener(object):
+class LinearVerificationListener:
     def __init__(self):
         self.results = []
 

@@ -279,6 +279,10 @@ class PhysicalImageContainer(Container):
         self.image = Image(image, resolver, dataStream)
         self.dataStream = dataStream
 
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.resolver.Return(self.dataStream)
+        super().__exit__(exc_type, exc_value, traceback)
+
 class LogicalImageContainer(Container):
     def __init__(self, backing_store, zip_file, version, volumeURN, resolver, lex):
         super(LogicalImageContainer, self).__init__(backing_store, zip_file, version, volumeURN, resolver, lex)
