@@ -1,4 +1,4 @@
-class RDFObject(object):
+class RDFObject:
     def __init__(self, URN, resolver, lexicon):
         self.resolver = resolver
         self.urn = URN

@@ -15,10 +15,6 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from __future__ import unicode_literals
-from future import standard_library
-standard_library.install_aliases()
-from builtins import chr
 import os
 import re
 import shutil
@@ -37,7 +33,7 @@ PRINTABLES_NO_SLASH = PRINTABLES.copy()
 PRINTABLES_NO_SLASH.discard('/')
 
 FORBIDDEN = set()
-for c in "<>\^`{|}":
+for c in r"<>\^`{|}":
     FORBIDDEN.add(c)
 
 # convert a file path to an ARN fragment

@@ -36,10 +36,13 @@ class LogicalAppendTest(unittest.TestCase):
     def setUp(self):
         pass
 
-    @unittest.skip
     def testCreateAndAppendSinglePathImageLarge2(self):
         try:
             containerName = tempfile.gettempdir() + u"/test-append-large2.aff4"
+            try:
+                os.unlink(containerName)
+            except (IOError, OSError):
+                pass
             pathA = u"/a.txt"
             pathB = u"/b.txt"
             largedata = io.BytesIO(os.urandom(1100000))
@@ -92,11 +95,14 @@ class LogicalAppendTest(unittest.TestCase):
             pass
             # os.unlink(containerName)
 
-    @unittest.skip
     def testCreateAndAppendSinglePathImageLarge(self):
         try:
             length = 10000
             containerName = tempfile.gettempdir() + u"/test-append-large.aff4"
+            try:
+                os.unlink(containerName)
+            except (IOError, OSError):
+                pass
             pathA = u"/a.txt"
             pathB = u"/b.txt"
             largedata = io.BytesIO(os.urandom(1100000))

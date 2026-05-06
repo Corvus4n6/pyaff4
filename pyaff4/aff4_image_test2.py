@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2014 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -14,9 +13,6 @@ from __future__ import unicode_literals
 # the License.
 import tempfile
 
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
 import os
 import io
 import unittest
@@ -66,7 +62,7 @@ class AFF4ImageTest(unittest.TestCase):
                     image.chunk_size = 5
                     image.chunks_per_segment = 2
                     image.Write(b"abcdeabcdea")
-                    self.assertEquals(b"abcde", image.Read(5))
+                    self.assertEqual(b"abcde", image.Read(5))
 
         with data_store.MemoryDataStore() as resolver:
             with zip.ZipFile.NewZipFile(resolver, version, self.filename_urn) as zip_file:
@@ -74,7 +70,7 @@ class AFF4ImageTest(unittest.TestCase):
 
                 self.image_urn_2 = self.image_urn.Append("2")
                 with resolver.AFF4FactoryOpen(self.image_urn_2) as image:
-                    self.assertEquals(11, image.Size())
+                    self.assertEqual(11, image.Size())
                     self.assertEqual(b"abcdeabcdea", image.ReadAll())
 
 if __name__ == '__main__':

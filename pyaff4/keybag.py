@@ -14,13 +14,7 @@
 #
 # Author: Bradley L Schatz bradley@evimetry.com
 
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import unicode_literals
 
-from builtins import next
-from builtins import str
-from builtins import object
 import binascii, rdflib, os
 from passlib.crypto import digest
 from pyaff4.aes_keywrap import aes_wrap_key, aes_unwrap_key
@@ -142,3 +136,6 @@ class CertEncryptedKeyBag:
         wrappedKey = resolver.GetUnique(volumeARN, keyBagARN, lexicon.standard11.wrappedKey)
         #print("WrappedKey: " + str(binascii.hexlify(wrappedKey.value)))
         return CertEncryptedKeyBag(subjectName.value, serial.value, keySizeInBytes.value, wrappedKey.value)
+
+# Alias used by crypt_image_test and other callers expecting a unified KeyBag name.
+KeyBag = PasswordWrappedKeyBag

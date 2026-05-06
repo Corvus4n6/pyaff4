@@ -13,11 +13,6 @@
 # the License.
 
 """RDF Values are responsible for serialization."""
-from __future__ import unicode_literals
-from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from builtins import object
 import functools
 import urllib.parse
 import urllib.request, urllib.parse, urllib.error
@@ -33,7 +28,7 @@ from pyaff4 import utils
 # pylint: disable=protected-access
 
 
-class Memoize(object):
+class Memoize:
     def __call__(self, f):
         f.memo_pad = {}
 
@@ -51,7 +46,7 @@ class Memoize(object):
         return Wrapped
 
 
-class RDFValue(object):
+class RDFValue:
     datatype = ""
 
     def __init__(self, initializer=None):
@@ -116,6 +111,9 @@ class XSDString(RDFValue):
     """A unicode string."""
     datatype = rdflib.XSD.string
 
+    def GetRaptorTerm(self):
+        return rdflib.Literal(self.value, datatype=self.datatype)
+
     def SerializeToString(self):
         return utils.SmartStr(self.value)
 
@@ -164,12 +162,6 @@ class XSDInteger(RDFValue):
 
     def __int__(self):
         return self.value
-
-    def __long__(self):
-        return int(self.value)
-
-    def __cmp__(self, o):
-        return self.value - o.value
 
     def __add__(self, o):
         return self.value + o
@@ -283,6 +275,10 @@ class URN(RDFValue):
         return rdflib.URIRef(self.value)
 
     def SerializeToString(self):
+        # Byte-range ARNs (e.g. aff4://uuid[offset:length]) contain brackets that
+        # Python 3.11's urlparse rejects. Return the raw value for these URNs.
+        if self.value and '[' in self.value:
+            return self.value
         components = self.Parse()
         return utils.SmartUnicode(urllib.parse.urlunparse(components))
 
@@ -307,7 +303,17 @@ class URN(RDFValue):
     # URL parsing seems to be slow in Python so we cache it as much as possible.
     @Memoize()
     def _Parse(self, value):
-        components = urllib.parse.urlparse(value)
+        if not value:
+            return urllib.parse.urlparse("")
+
+        try:
+            components = urllib.parse.urlparse(value)
+        except ValueError:
+            # Python 3.11+ rejects brackets in URLs (byte-range notation).
+            # Parse only the base (before '[') and append the bracket part to path.
+            bracket_idx = value.index('[') if '[' in value else len(value)
+            base = value[:bracket_idx]
+            components = urllib.parse.urlparse(base)
 
         # dont normalise path for http URI's
         if components.scheme and not components.scheme == "http":
@@ -366,7 +372,7 @@ class URN(RDFValue):
             return urn_value[len(self.value):]
 
     def __str__(self):
-        return self.value
+        return self.value if self.value is not None else ""
 
     def __lt__(self, other):
         return self.value < utils.SmartUnicode(other)
@@ -390,18 +396,13 @@ def AssertURN(urn):
         raise TypeError("Expecting a URN.")
 
 
-def AssertURN(urn):
-    if not isinstance(urn, URN):
-        raise TypeError("Expecting a URN.")
-
-
 registry.RDF_TYPE_MAP.update({
     rdflib.XSD.hexBinary: RDFBytes,
     rdflib.XSD.string: XSDString,
     rdflib.XSD.integer: XSDInteger,
     rdflib.XSD.int: XSDInteger,
     rdflib.XSD.long: XSDInteger,
-    rdflib.XSD.datetime: XSDDateTime,
+    rdflib.XSD.dateTime: XSDDateTime,
     rdflib.URIRef("http://aff4.org/Schema#SHA512"): SHA512Hash,
     rdflib.URIRef("http://aff4.org/Schema#SHA256"): SHA256Hash,
     rdflib.URIRef("http://aff4.org/Schema#SHA1"): SHA1Hash,

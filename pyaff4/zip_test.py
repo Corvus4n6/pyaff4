@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -14,8 +13,6 @@ from __future__ import unicode_literals
 # the License.
 
 
-from future import standard_library
-standard_library.install_aliases()
 import os
 import io
 import unittest
@@ -79,7 +76,7 @@ class ZipTest(unittest.TestCase):
             segment_urn = zip_file.urn.Append(self.streamed_segment)
 
         with resolver.AFF4FactoryOpen(segment_urn) as segment:
-            self.assertEquals(segment.Read(1000), self.data1)
+            self.assertEqual(segment.Read(1000), self.data1)
 
     def testOpenSegmentByURN(self):
         resolver = data_store.MemoryDataStore()
@@ -89,7 +86,7 @@ class ZipTest(unittest.TestCase):
         with zip.ZipFile.NewZipFile(resolver, version.aff4v10, self.filename_urn) as zip_file:
             segment_urn = zip_file.urn.Append(self.segment_name)
         with resolver.AFF4FactoryOpen(segment_urn) as segment:
-            self.assertEquals(segment.Read(1000), self.data1 + self.data2)
+            self.assertEqual(segment.Read(1000), self.data1 + self.data2)
 
     def testSeekThrowsWhenWriting(self):
         resolver = data_store.MemoryDataStore()

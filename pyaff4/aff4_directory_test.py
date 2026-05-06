@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -23,7 +22,10 @@ from pyaff4 import rdfvalue
 from pyaff4 import container
 from pyaff4 import plugins
 
-from nose.tools import nottest
+def nottest(func):
+    """Mark a test function as not a test (pytest/nose compatibility)."""
+    func.__test__ = False
+    return func
 
 class AFF4DirectoryTest(unittest.TestCase):
     root_path = tempfile.gettempdir() + "/aff4_directory/"
@@ -61,13 +63,13 @@ class AFF4DirectoryTest(unittest.TestCase):
                 # Check for member.
                 child_urn = directory.urn.Append(self.segment_name)
                 with resolver.AFF4FactoryOpen(child_urn) as child:
-                    self.assertEquals(child.Read(10000), b"Hello world")
+                    self.assertEqual(child.Read(10000), b"Hello world")
 
                 # Check that the metadata is carried over.
                 filename = resolver.Get(
                     child_urn, lexicon.AFF4_STREAM_ORIGINAL_FILENAME)
 
-                self.assertEquals(filename, self.root_path + self.segment_name)
+                self.assertEqual(filename, self.root_path + self.segment_name)
 
 if __name__ == '__main__':
     #logging.getLogger().setLevel(logging.DEBUG)

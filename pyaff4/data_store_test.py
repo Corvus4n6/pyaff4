@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -14,8 +13,6 @@ from __future__ import unicode_literals
 # the License.
 
 
-from future import standard_library
-standard_library.install_aliases()
 from pyaff4 import aff4
 from pyaff4 import data_store
 from pyaff4 import lexicon
@@ -41,9 +38,9 @@ class DataStoreTest(unittest.TestCase):
     def testDataStore(self):
         result = self.store.GetUnique(None,self.hello_urn, rdfvalue.URN(
             lexicon.AFF4_IMAGE_COMPRESSION_SNAPPY))
-        self.assertEquals(type(result), rdfvalue.XSDString)
+        self.assertEqual(type(result), rdfvalue.XSDString)
 
-        self.assertEquals(result.SerializeToString(), b"foo")
+        self.assertEqual(result.SerializeToString(), b"foo")
 
         self.store.Set(None,
             self.hello_urn, rdfvalue.URN(lexicon.AFF4_IMAGE_COMPRESSION_SNAPPY),
@@ -51,7 +48,7 @@ class DataStoreTest(unittest.TestCase):
 
         # In the current implementation a second Set() overwrites the previous
         # value.
-        self.assertEquals(
+        self.assertEqual(
             self.store.GetUnique(None,self.hello_urn, rdfvalue.URN(
                 lexicon.AFF4_IMAGE_COMPRESSION_SNAPPY)),
             rdfvalue.XSDString("bar"))
@@ -63,7 +60,7 @@ class DataStoreTest(unittest.TestCase):
         new_store.LoadFromTurtle(stream, None)
         res = new_store.GetUnique(None,self.hello_urn, rdfvalue.URN(
             lexicon.AFF4_IMAGE_COMPRESSION_SNAPPY))
-        self.assertEquals(res, b"foo")
+        self.assertEqual(res, b"foo")
 
 
 class AFF4ObjectCacheMock(data_store.AFF4ObjectCache):
@@ -91,56 +88,56 @@ class AFF4ObjectCacheTest(unittest.TestCase):
         result = cache.GetKeys()
 
         # Keys are stored as serialized urns.
-        self.assertEquals(result[0], "file:///c")
-        self.assertEquals(result[1], "file:///b")
-        self.assertEquals(result[2], "file:///a")
+        self.assertEqual(result[0], "file:///c")
+        self.assertEqual(result[1], "file:///b")
+        self.assertEqual(result[2], "file:///a")
 
         # This removes the object from the cache and places it in the in_use
         # list.
-        self.assertEquals(cache.Get("file:///a"), obj1)
+        self.assertEqual(cache.Get("file:///a"), obj1)
 
         # Keys are stored as serialized urns.
         result = cache.GetKeys()
-        self.assertEquals(len(result), 2)
-        self.assertEquals(result[0], "file:///c")
-        self.assertEquals(result[1], "file:///b")
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0], "file:///c")
+        self.assertEqual(result[1], "file:///b")
 
         # Keys are stored as serialized urns.
         in_use = cache.GetInUse()
-        self.assertEquals(len(in_use), 1)
-        self.assertEquals(in_use[0], "file:///a")
+        self.assertEqual(len(in_use), 1)
+        self.assertEqual(in_use[0], "file:///a")
 
         # Now we return the object. It should now appear in the lru lists.
         cache.Return(obj1)
 
         result = cache.GetKeys()
-        self.assertEquals(len(result), 3)
+        self.assertEqual(len(result), 3)
 
-        self.assertEquals(result[0], "file:///a")
-        self.assertEquals(result[1], "file:///c")
-        self.assertEquals(result[2], "file:///b")
+        self.assertEqual(result[0], "file:///a")
+        self.assertEqual(result[1], "file:///c")
+        self.assertEqual(result[2], "file:///b")
 
         in_use = cache.GetInUse()
-        self.assertEquals(len(in_use), 0)
+        self.assertEqual(len(in_use), 0)
 
         # Over flow the cache - this should expire the older object.
         cache.Put(obj4)
         result = cache.GetKeys()
-        self.assertEquals(len(result), 3)
+        self.assertEqual(len(result), 3)
 
-        self.assertEquals(result[0], "file:///d")
-        self.assertEquals(result[1], "file:///a")
-        self.assertEquals(result[2], "file:///c")
+        self.assertEqual(result[0], "file:///d")
+        self.assertEqual(result[1], "file:///a")
+        self.assertEqual(result[2], "file:///c")
 
         # b is now expired so not in cache.
-        self.assertEquals(cache.Get("file:///b"), None)
+        self.assertEqual(cache.Get("file:///b"), None)
 
         # Check that remove works
         cache.Remove(obj4)
 
-        self.assertEquals(cache.Get("file:///d"), None)
+        self.assertEqual(cache.Get("file:///d"), None)
         result = cache.GetKeys()
-        self.assertEquals(len(result), 2)
+        self.assertEqual(len(result), 2)
 
 
 if __name__ == '__main__':

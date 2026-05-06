@@ -1,9 +1,4 @@
 """An implementation of a struct parser which is fast and convenient."""
-from __future__ import unicode_literals
-
-from builtins import zip
-from builtins import object
-import six
 import struct
 
 from pyaff4 import utils
@@ -17,7 +12,7 @@ format_string_map = dict(
     int16_t="h",
 )
 
-class BaseParser(object):
+class BaseParser:
     __slots__ = ("_data", "_fields", "_name", "_format_string", "_defaults")
 
     def __init__(self, data=None, **kwargs):
@@ -77,7 +72,6 @@ def CreateStruct(struct_name, definition):
         _defaults=defaults,
         _name=struct_name)
 
-    # Make accessors for all fields.
     for i, field in enumerate(fields):
         def setx(self, value, i=i):
             self._data[i] = value
@@ -87,7 +81,4 @@ def CreateStruct(struct_name, definition):
 
         properties[field] = property(getx, setx)
 
-    if six.PY2:
-        return type(utils.SmartStr(struct_name), (BaseParser,), properties)
-    else:
-        return type(utils.SmartUnicode(struct_name), (BaseParser,), properties)
+    return type(utils.SmartUnicode(struct_name), (BaseParser,), properties)

@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyaff4"
+version = "0.33.0"
+description = "Advanced Forensic Format Version 4 (AFF4) Python library and CLI"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Michael Cohen", email = "scudette@gmail.com" },
+    { name = "Bradley Schatz", email = "bradley@evimetry.com" },
+]
+requires-python = ">=3.11"
+keywords = ["forensics", "aff4", "disk-image", "digital-forensics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Archiving",
+]
+dependencies = [
+    "rdflib>=6.0.0",
+    "intervaltree",
+    "pyyaml",
+    "tzlocal>=4.0",
+    "html5lib>=1.1",
+    "python-dateutil>=2.8.0",
+    "pynacl",
+    "pycryptodome",
+    "pycryptoplus",
+    "passlib",
+    "cryptography",
+    "expiringdict",
+    "lz4",
+    "python-snappy",
+]
+
+[project.optional-dependencies]
+cloud = ["google-api-python-client"]
+cdc = ["fastchunking==0.0.3"]
+dev = [
+    "pytest",
+    "pyinstaller",
+]
+
+[project.scripts]
+aff4 = "pyaff4.cli:main"
+
+[project.urls]
+Homepage = "https://www.aff4.org/"
+Repository = "https://github.com/aff4/pyaff4"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyaff4*"]
+
+[tool.pytest.ini_options]
+testpaths = ["pyaff4"]
+python_files = ["*_test.py", "test_*.py"]

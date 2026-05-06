@@ -1,19 +1,14 @@
-future == 1.0.0
-aff4-snappy @ git+https://github.com/aff4/aff4-snappy@88aba3a3fe4b3f9c20bcfeb5b4c1935c801760bb  # Use source version of aff4-snappy to be able to build on ARM64 (https://github.com/aff4/aff4-snappy/pull/2)
-rdflib[sparql] == 4.2.2
+rdflib>=6.0.0
 intervaltree
 pyyaml
-tzlocal == 2.1
-html5lib == 1.0.1
-python-dateutil == 2.8.0
-pybindgen
-fastchunking == 0.0.3
-hexdump
+tzlocal>=4.0
+html5lib>=1.1
+python-dateutil>=2.8.0
 pynacl
 pycryptodome
 pycryptoplus
-aes-keywrap
 passlib
 cryptography
 expiringdict
 lz4
+python-snappy

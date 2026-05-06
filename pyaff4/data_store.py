@@ -13,17 +13,11 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from __future__ import print_function
-from __future__ import unicode_literals
-
-from builtins import str
-from builtins import object
 from os.path import expanduser
 import collections
 import logging
 import rdflib
 import re
-import six
 import os
 import tempfile
 import traceback
@@ -67,7 +61,7 @@ def CHECK(condition, error):
     if not condition:
         raise RuntimeError(error)
 
-class AFF4ObjectCacheEntry(object):
+class AFF4ObjectCacheEntry:
     def __init__(self, key, aff4_obj):
         self.next = self.prev = self
         self.key = key
@@ -96,7 +90,7 @@ class AFF4ObjectCacheEntry(object):
             entry = entry.next
 
 
-class AFF4ObjectCache(object):
+class AFF4ObjectCache:
     def __init__(self, max_items):
         self.max_items = max_items
         self.in_use = {}
@@ -171,8 +165,6 @@ class AFF4ObjectCache(object):
         return entry.aff4_obj
 
     def Return(self, aff4_obj):
-        if type(aff4_obj) == aff4_image.AFF4SImage:
-            print
         if type(aff4_obj) == aff4_map.ByteRangeARN:
             return
         key = aff4_obj.urn.SerializeToString()
@@ -192,8 +184,6 @@ class AFF4ObjectCache(object):
             self._Trim()
 
     def Remove(self, aff4_obj):
-        if type(aff4_obj) == aff4_image.AFF4SImage:
-            print
         key = aff4_obj.urn.SerializeToString()
         #LOGGER.debug("Removing %s in cache" % key)
         entry = self.lru_map.pop(key, None)
@@ -260,7 +250,7 @@ class AFF4ObjectCache(object):
         # Clear the map.
         self.lru_map.clear()
 
-class MemoryDataStore(object):
+class MemoryDataStore:
     aff4NS = None
 
     def __init__(self, lex=lexicon.standard, parent=None):
@@ -748,11 +738,11 @@ class MemoryDataStore(object):
         subject_regex = re.compile(utils.SmartStr(subject_regex))
 
         if graph == lexicon.any or graph == None:
-            storeitems = chain(six.iteritems(self.store), six.iteritems(self.transient_store))
+            storeitems = chain(self.store.items(), self.transient_store.items())
         elif graph == transient_graph:
-            storeitems = six.iteritems(self.transient_store)
+            storeitems = self.transient_store.items()
         else:
-            storeitems = six.iteritems(self.store)
+            storeitems = self.store.items()
 
         for subject in storeitems:
             if subject_regex is not None and subject_regex.match(subject):
@@ -763,14 +753,14 @@ class MemoryDataStore(object):
         predicate = utils.SmartStr(predicate)
 
         if graph == lexicon.any or graph == None:
-            storeitems = chain(six.iteritems(self.store), six.iteritems(self.transient_store))
+            storeitems = chain(self.store.items(), self.transient_store.items())
         elif graph == transient_graph:
-            storeitems = six.iteritems(self.transient_store)
+            storeitems = self.transient_store.items()
         else:
-            storeitems = six.iteritems(self.store)
+            storeitems = self.store.items()
 
         for subject, data in storeitems:
-            for pred, values in six.iteritems(data):
+            for pred, values in data.items():
                 if pred == predicate:
                     if type(values) != type([]):
                         values = [values]
@@ -784,11 +774,11 @@ class MemoryDataStore(object):
         predicate = utils.SmartUnicode(predicate)
 
         if graph == lexicon.any or graph == None:
-            storeitems = chain(six.iteritems(self.store), six.iteritems(self.transient_store))
+            storeitems = chain(self.store.items(), self.transient_store.items())
         elif graph == transient_graph:
-            storeitems = six.iteritems(self.transient_store)
+            storeitems = self.transient_store.items()
         else:
-            storeitems = six.iteritems(self.store)
+            storeitems = self.store.items()
 
         for subject, data in list(storeitems):
             for pred, value in list(data.items()):
@@ -839,11 +829,11 @@ class MemoryDataStore(object):
         prefix = utils.SmartUnicode(prefix)
 
         if graph == lexicon.any or graph == None:
-            storeitems = chain(six.iteritems(self.store), six.iteritems(self.transient_store))
+            storeitems = chain(self.store.items(), self.transient_store.items())
         elif graph == transient_graph:
-            storeitems = six.iteritems(self.transient_store)
+            storeitems = self.transient_store.items()
         else:
-            storeitems = six.iteritems(self.store)
+            storeitems = self.store.items()
 
         for subject, predicateDict in storeitems:
             if subject.startswith(prefix):

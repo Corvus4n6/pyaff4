@@ -13,10 +13,6 @@
 # the License.
 
 """This module implements the standard AFF4 Image."""
-from __future__ import print_function
-from __future__ import unicode_literals
-from builtins import str
-from builtins import object
 import collections
 import intervaltree
 import logging
@@ -105,7 +101,7 @@ class Range(collections.namedtuple(
         return self._replace(length=self.length - adjustment)
 
 
-class _MapStreamHelper(object):
+class _MapStreamHelper:
 
     def __init__(self, resolver, source, destination):
         self.resolver = resolver

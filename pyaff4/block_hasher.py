@@ -1,8 +1,3 @@
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 # Copyright 2016,2017 Schatz Forensic Pty Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -17,16 +12,9 @@ from __future__ import unicode_literals
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from builtins import next
-from builtins import str
-from builtins import range
-from past.utils import old_div
-from builtins import object
-
 import binascii
 import collections
 import hashlib
-import six
 
 from pyaff4 import container
 from pyaff4 import data_store
@@ -56,7 +44,7 @@ hashOrderingMap = { lexicon.HASH_MD5 : 1,
                     lexicon.HASH_SHA512 : 4,
                     lexicon.HASH_BLAKE2B: 5}
 
-class ValidationListener(object):
+class ValidationListener:
     def __init__(self):
         pass
 
@@ -73,7 +61,7 @@ class ValidationListener(object):
     def onInvalidHash(self, typ, a, b, streamURI):
         raise InvalidHashComparison("Invalid %s comarison for stream %s" % (typ, streamURI))
 
-class BlockHashesHash(object):
+class BlockHashesHash:
     def __init__(self, blockHashAlgo, hash, hashDataType):
         self.blockHashAlgo = blockHashAlgo
         self.hash = hash
@@ -92,7 +80,7 @@ class BlockHashesHash(object):
         return binascii.unhexlify(self.hash)
 
 
-class Validator(object):
+class Validator:
     def __init__(self, listener=None):
         if listener == None:
             self.listener = ValidationListener()
@@ -197,7 +185,7 @@ class Validator(object):
                     h.update(block)
                     calculatedBlockHash = h.hexdigest()
 
-                    chunkIdx = old_div(offset, imageStream.chunk_size)
+                    chunkIdx = offset // imageStream.chunk_size
                     storedBlockHash = imageStream.readBlockHash(chunkIdx, hashDataType)
                     if calculatedBlockHash != storedBlockHash:
                         self.listener.onInvalidBlockHash(

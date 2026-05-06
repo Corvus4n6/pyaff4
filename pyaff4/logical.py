@@ -24,7 +24,7 @@ import traceback
 if platform.system() == "Linux":
     from pyaff4 import statx
 
-class FSMetadata(object):
+class FSMetadata:
     def __init__(self, urn, name, length):
         self.name = name
         self.length = length

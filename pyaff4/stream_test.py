@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2014 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -24,48 +23,48 @@ import traceback
 
 class StreamTest(unittest.TestCase):
     def streamTest(self, stream):
-        self.assertEquals(0, stream.TellRead())
-        self.assertEquals(0, stream.Size())
+        self.assertEqual(0, stream.TellRead())
+        self.assertEqual(0, stream.Size())
 
         stream.Write(b"hello world")
-        self.assertEquals(11, stream.TellWrite())
+        self.assertEqual(11, stream.TellWrite())
 
         stream.SeekRead(0, 0)
-        self.assertEquals(0, stream.TellRead())
+        self.assertEqual(0, stream.TellRead())
 
-        self.assertEquals(b"hello world",
+        self.assertEqual(b"hello world",
                           stream.Read(1000))
 
-        self.assertEquals(11, stream.TellRead())
+        self.assertEqual(11, stream.TellRead())
 
         stream.SeekRead(-5, 2)
-        self.assertEquals(6, stream.TellRead())
+        self.assertEqual(6, stream.TellRead())
 
-        self.assertEquals(b"world",
+        self.assertEqual(b"world",
                           stream.Read(1000))
 
         stream.SeekWrite(6, 0)
-        self.assertEquals(6, stream.TellWrite())
+        self.assertEqual(6, stream.TellWrite())
 
         stream.Write(b"Cruel world")
         stream.SeekRead(0, 0)
-        self.assertEquals(0, stream.TellRead())
-        self.assertEquals(b"hello Cruel world",
+        self.assertEqual(0, stream.TellRead())
+        self.assertEqual(b"hello Cruel world",
                           stream.Read(1000))
 
-        self.assertEquals(17, stream.TellRead())
+        self.assertEqual(17, stream.TellRead())
 
         stream.SeekRead(0, 0)
 
-        self.assertEquals(b"he",
+        self.assertEqual(b"he",
                           stream.Read(2))
 
         stream.SeekWrite(2,0)
         stream.Write(b"I have %d arms and %#x legs." % (2, 1025))
-        self.assertEquals(31, stream.TellWrite())
+        self.assertEqual(31, stream.TellWrite())
 
         stream.SeekRead(0, 0)
-        self.assertEquals(b"heI have 2 arms and 0x401 legs.",
+        self.assertEqual(b"heI have 2 arms and 0x401 legs.",
                           stream.Read(1000))
 
     def testFileBackedStream(self):

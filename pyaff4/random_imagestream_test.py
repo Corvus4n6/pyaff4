@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Copyright 2019 Schatz Forensic Pty. Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -14,8 +13,6 @@ from __future__ import unicode_literals
 # the License.
 import tempfile
 
-from future import standard_library
-standard_library.install_aliases()
 
 import unittest
 import os
@@ -123,7 +120,7 @@ class AFF4ImageTest(unittest.TestCase):
 
                     image.Write(b"ab")
                     image.Trim(1)
-                    self.assertEquals(1, image.size)
+                    self.assertEqual(1, image.size)
 
         with data_store.MemoryDataStore() as resolver:
             with zip.ZipFile.NewZipFile(resolver, version, self.filename_urn) as zip_file:

@@ -14,12 +14,8 @@
 #
 # Author: Bradley L Schatz bradley@evimetry.com
 
-from __future__ import unicode_literals
 import tempfile
 
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
 import os
 import io
 import unittest
@@ -75,9 +71,9 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
                     image.Write(b"abcd")
-                    self.assertEquals(b"abcd", image.Read(4))
+                    self.assertEqual(b"abcd", image.Read(4))
                     image.SeekRead(0,0)
-                    self.assertEquals(b"abcd", image.Read(5))
+                    self.assertEqual(b"abcd", image.Read(5))
 
         with data_store.MemoryDataStore() as resolver:
             with zip.ZipFile.NewZipFile(resolver, version, self.filename_urn) as zip_file:
@@ -88,7 +84,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(4, image.Size())
+                    self.assertEqual(4, image.Size())
                     self.assertEqual(b"abcd", image.ReadAll())
 
     #@unittest.skip
@@ -114,7 +110,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
                     image.Write(b"abcda")
-                    self.assertEquals(b"abcda", image.Read(5))
+                    self.assertEqual(b"abcda", image.Read(5))
 
         with data_store.MemoryDataStore() as resolver:
             with zip.ZipFile.NewZipFile(resolver, version, self.filename_urn) as zip_file:
@@ -125,7 +121,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(5, image.Size())
+                    self.assertEqual(5, image.Size())
                     self.assertEqual(b"abcda", image.ReadAll())
 
     #@unittest.skip
@@ -151,7 +147,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
                     image.Write(b"abcdaa")
-                    self.assertEquals(b"abcdaa", image.Read(6))
+                    self.assertEqual(b"abcdaa", image.Read(6))
 
         with data_store.MemoryDataStore() as resolver:
             with zip.ZipFile.NewZipFile(resolver, version, self.filename_urn) as zip_file:
@@ -162,7 +158,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(6, image.Size())
+                    self.assertEqual(6, image.Size())
                     self.assertEqual(b"abcdaa", image.ReadAll())
 
     #@unittest.skip
@@ -200,7 +196,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(10, image.Size())
+                    self.assertEqual(10, image.Size())
                     self.assertEqual(b"abcdeabcde", image.ReadAll())
 
     #@unittest.skip
@@ -241,7 +237,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.DEBUG = True
                     image.setKeyBag(kb)
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(11, image.Size())
+                    self.assertEqual(11, image.Size())
                     self.assertEqual(b"abcdeabcdea", image.ReadAll())
 
     #@unittest.skip
@@ -275,7 +271,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = False
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(4, image.Size())
+                    self.assertEqual(4, image.Size())
                     self.assertEqual(b"abcd", image.ReadAll())
 
     #@unittest.skip
@@ -311,7 +307,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = False
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(512, image.Size())
+                    self.assertEqual(512, image.Size())
                     self.assertEqual(txt, image.ReadAll())
 
     #@unittest.skip
@@ -345,7 +341,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = False
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(513, image.Size())
+                    self.assertEqual(513, image.Size())
                     self.assertEqual(txt, image.ReadAll())
 
     #@unittest.skip
@@ -378,7 +374,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = False
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(512*1024, image.Size())
+                    self.assertEqual(512*1024, image.Size())
                     self.assertEqual(txt, image.ReadAll())
 
     #@unittest.skip
@@ -412,7 +408,7 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = False
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(512*1024+1, image.Size())
+                    self.assertEqual(512*1024+1, image.Size())
                     self.assertEqual(txt, image.ReadAll())
 
     #@unittest.skip
@@ -463,10 +459,10 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(1024*512+2+512, image.Size())
+                    self.assertEqual(1024*512+2+512, image.Size())
                     all = image.ReadAll()
                     expected = b'b' + (b'\0'*((512*1024)-1)) + (b'\0'*2) + (b'b'* 512)
-                    self.assertEquals(expected , all)
+                    self.assertEqual(expected , all)
 
 
     #@unittest.skip
@@ -517,8 +513,8 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(513, image.Size())
-                    self.assertEquals(b'a'*512 + b'b', image.ReadAll())
+                    self.assertEqual(513, image.Size())
+                    self.assertEqual(b'a'*512 + b'b', image.ReadAll())
 
     #@unittest.skip
     def testAppendOfEncryptedSingleChunk(self):
@@ -567,8 +563,8 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(512, image.Size())
-                    self.assertEquals(b'b' + b'a'*511, image.ReadAll())
+                    self.assertEqual(512, image.Size())
+                    self.assertEqual(b'b' + b'a'*511, image.ReadAll())
 
     #@unittest.skip
     def testAppendOfEncryptedSubChunk(self):
@@ -617,8 +613,8 @@ class AFF4EncryptedStreamTest(unittest.TestCase):
                     image.setKeyBag(kb)
                     image.DEBUG = True
                     image.setKey(kb.unwrap_key("secret"))
-                    self.assertEquals(2, image.Size())
-                    self.assertEquals(b'ba', image.ReadAll())
+                    self.assertEqual(2, image.Size())
+                    self.assertEqual(b'ba', image.ReadAll())
 
 if __name__ == '__main__':
     #logging.getLogger().setLevel(logging.DEBUG)

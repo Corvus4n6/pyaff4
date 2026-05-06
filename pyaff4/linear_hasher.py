@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from __future__ import unicode_literals
 # Copyright 2016,2017 Schatz Forensic Pty Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -14,7 +12,6 @@ from __future__ import unicode_literals
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from builtins import object
 import io
 from pyaff4 import block_hasher
 from pyaff4 import container
@@ -25,7 +22,7 @@ from pyaff4 import zip
 from pyaff4 import aff4
 
 
-class LinearHasher(object):
+class LinearHasher:
     def __init__(self, listener=None):
         if listener == None:
             self.listener = block_hasher.ValidationListener()
@@ -177,7 +174,7 @@ class LinearHasher2:
                 return
 
 
-class StreamHasher(object):
+class StreamHasher:
     def __init__(self, parent, hashDatatypes):
         self.parent = parent
         self.hashes = []
@@ -198,7 +195,7 @@ class StreamHasher(object):
     def getHash(self, dataType):
         return next(h for h in self.hashes if self.hashToType[h] == dataType)
 
-class PushHasher(object):
+class PushHasher:
     def __init__(self, hashDatatypes):
         self.hashes = []
         self.hashToType = {}

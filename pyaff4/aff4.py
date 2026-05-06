@@ -13,12 +13,6 @@
 # the License.
 
 """This is the python AFF4 library."""
-from __future__ import division
-from __future__ import unicode_literals
-from builtins import next
-from builtins import str
-from past.utils import old_div
-from builtins import object
 import platform
 import sys
 import time
@@ -28,7 +22,7 @@ import weakref
 from pyaff4 import rdfvalue
 from pyaff4 import lexicon
 
-class NoneObject(object):
+class NoneObject:
     """ A magical object which is like None but swallows bad
     dereferences, __getattr__, iterators etc to return itself.
 
@@ -148,18 +142,18 @@ def newARN():
     arn = "aff4://%s" % uuid.uuid4()
     return rdfvalue.URN(arn)
 
-class AFF4StreamProperties(object):
+class AFF4StreamProperties:
     seekable = True
     sizeable = True
     writable = False
 
-class AFF4VolumeProperties(object):
+class AFF4VolumeProperties:
     supports_compression = True
     writable = False
     files_are_directories = True
 
 
-class AFF4Object(object):
+class AFF4Object:
     def __init__(self, resolver, urn=None, version=None, *args, **kwargs):
         self.resolver = resolver
         self._dirty = False
@@ -323,7 +317,7 @@ class AFF4Stream(AFF4Object):
         #self.SeekWrite(0)
 
 
-class ProgressContext(object):
+class ProgressContext:
     last_time = 0
     last_offset = 0
 
@@ -349,7 +343,7 @@ class ProgressContext(object):
         """
         readptr = readptr + self.start
         now = self.now()
-        if now > self.last_time + old_div(1000000,4):
+        if now > self.last_time + 1000000 // 4:
             # Rate in MB/s.
             rate = ((readptr - self.last_offset) /
                     (now - self.last_time) * 1000000 / 1024/1024)

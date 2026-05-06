@@ -14,9 +14,6 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from __future__ import unicode_literals
-from future import standard_library
-standard_library.install_aliases()
 import os
 import unittest
 
@@ -77,11 +74,11 @@ class ZipTest(unittest.TestCase):
                     escaping.arnPathFragment_from_path(self.period_start_segment_name), quote=False)
 
             with resolver.AFF4FactoryOpen(segment_urn) as segment:
-                self.assertEquals(segment.Read(1000), self.data1 )
+                self.assertEqual(segment.Read(1000), self.data1 )
             with resolver.AFF4FactoryOpen(unc_segment_urn) as segment:
-                self.assertEquals(segment.Read(1000), self.data1 )
+                self.assertEqual(segment.Read(1000), self.data1 )
             with resolver.AFF4FactoryOpen(unc_segment_urn) as segment:
-                self.assertEquals(segment.Read(1000), self.data1)
+                self.assertEqual(segment.Read(1000), self.data1)
 
         except Exception:
             traceback.print_exc()
