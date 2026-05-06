@@ -90,7 +90,6 @@ class AFF4ImageTest(unittest.TestCase):
 
                     self.image_urn = image.urn
 
-    @unittest.skip
     def testCreateRegContainer(self):
         try:
             os.unlink(self.filenameB)
@@ -339,7 +338,6 @@ class AFF4ImageTest(unittest.TestCase):
                     txt = fd.ReadAll()
                     self.assertEqual(src, txt)
 
-    @unittest.skip
     def testCreateThenRead(self):
         self.create()
         self.read()

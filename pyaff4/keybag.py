@@ -136,3 +136,6 @@ class CertEncryptedKeyBag:
         wrappedKey = resolver.GetUnique(volumeARN, keyBagARN, lexicon.standard11.wrappedKey)
         #print("WrappedKey: " + str(binascii.hexlify(wrappedKey.value)))
         return CertEncryptedKeyBag(subjectName.value, serial.value, keySizeInBytes.value, wrappedKey.value)
+
+# Alias used by crypt_image_test and other callers expecting a unified KeyBag name.
+KeyBag = PasswordWrappedKeyBag
