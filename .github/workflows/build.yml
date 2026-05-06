@@ -76,7 +76,7 @@ jobs:
             python:3.11-slim-bullseye \
             bash -c "
               set -e
-              apt-get update -qq && apt-get install -y --no-install-recommends binutils
+              apt-get update -qq && apt-get install -y --no-install-recommends binutils g++
               pip install -r requirements.txt pyinstaller
               pyinstaller aff4.spec
             "

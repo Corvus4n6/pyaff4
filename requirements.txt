@@ -13,3 +13,4 @@ cryptography
 expiringdict
 lz4
 python-snappy
+./vendor/fastchunking

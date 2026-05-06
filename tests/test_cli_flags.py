@@ -236,11 +236,6 @@ class TestAppend:
 # ── -H / --hash (hash-based imaging) ──────────────────────────────────────────
 
 class TestHashBased:
-    @pytest.fixture(autouse=True)
-    def _require_fastchunking(self):
-        pytest.importorskip("fastchunking",
-                             reason="fastchunking not installed; pip install pyaff4[cdc]")
-
     def test_hash_create_and_list(self, run_aff4, tmp_path):
         container = tmp_path / "hash.aff4"
         src = tmp_path / "data.bin"
@@ -330,11 +325,6 @@ class TestEncrypted:
 # ── -i / --ingest ──────────────────────────────────────────────────────────────
 
 class TestIngest:
-    @pytest.fixture(autouse=True)
-    def _require_fastchunking(self):
-        pytest.importorskip("fastchunking",
-                             reason="fastchunking not installed; pip install pyaff4[cdc]")
-
     def test_ingest_zip_creates_container(self, run_aff4, tmp_path):
         zip_path = tmp_path / "archive.bag.zip"
         with zipfile.ZipFile(zip_path, "w") as zf:
