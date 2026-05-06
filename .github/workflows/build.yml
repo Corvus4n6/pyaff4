@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             artifact_name: aff4-linux-x86_64
             binary_path: dist/aff4
           - os: windows-latest
