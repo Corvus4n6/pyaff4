@@ -84,6 +84,17 @@ jobs:
       - name: Smoke test
         run: ${{ matrix.binary_path }} --help
 
+      - name: Install test dependencies
+        if: ${{ !matrix.use_docker }}
+        run: pip install pytest
+
+      - name: Install test dependencies (Linux Docker host)
+        if: ${{ matrix.use_docker }}
+        run: pip install pytest
+
+      - name: Run CLI integration tests
+        run: pytest tests/test_cli_flags.py -v --binary ${{ matrix.binary_path }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
