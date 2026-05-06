@@ -53,7 +53,7 @@ class RDFValue:
         self.Set(initializer)
 
     def GetRaptorTerm(self):
-        return rdflib.Literal(self.SerializeToString(),
+        return rdflib.Literal(utils.SmartUnicode(self.SerializeToString()),
                               datatype=self.datatype)
 
     def SerializeToString(self):

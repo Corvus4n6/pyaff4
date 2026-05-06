@@ -6,6 +6,9 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build (${{ matrix.artifact_name }})
@@ -44,20 +47,23 @@ jobs:
           pip install -r requirements.txt pyinstaller
           pyinstaller aff4.spec
 
-      # ── Linux (manylinux2014, glibc 2.17) ─────────────────────────────────
-      # Builds inside a CentOS-7-based container so the binary's minimum
-      # glibc requirement is 2.17, compatible with any Linux since ~2012.
-      - name: Build in manylinux2014 container
+      # ── Linux (Debian 11 / glibc 2.31) ────────────────────────────────────
+      # python:3.11-slim-bullseye is built with --enable-shared (required by
+      # PyInstaller) and targets glibc 2.31, covering Ubuntu 20.04+,
+      # Debian 11+, Fedora 32+. manylinux containers cannot be used here
+      # because their Python builds omit the shared library.
+      - name: Build in python:3.11-slim-bullseye container
         if: ${{ matrix.manylinux }}
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/workspace" \
             -w /workspace \
-            quay.io/pypa/manylinux2014_x86_64 \
+            python:3.11-slim-bullseye \
             bash -c "
               set -e
-              /opt/python/cp311-cp311/bin/pip install -r requirements.txt pyinstaller
-              /opt/python/cp311-cp311/bin/pyinstaller aff4.spec
+              apt-get update -qq && apt-get install -y --no-install-recommends binutils
+              pip install -r requirements.txt pyinstaller
+              pyinstaller aff4.spec
             "
 
       - name: Smoke test
