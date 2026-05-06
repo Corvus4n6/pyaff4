@@ -17,43 +17,58 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # ── Linux x86_64 ──────────────────────────────────────────────────
           - os: ubuntu-22.04
             artifact_name: aff4-linux-x86_64
             binary_path: dist/aff4
-            manylinux: true
+            use_docker: true
+
+          # ── Linux ARM64 ───────────────────────────────────────────────────
+          - os: ubuntu-22.04-arm
+            artifact_name: aff4-linux-arm64
+            binary_path: dist/aff4
+            use_docker: true
+
+          # ── Windows x86_64 ────────────────────────────────────────────────
           - os: windows-latest
             artifact_name: aff4-windows-x86_64
             binary_path: dist/aff4.exe
-            manylinux: false
-          - os: macos-latest
+            use_docker: false
+
+          # ── macOS x86_64 (Intel, macos-13 is the last Intel runner) ───────
+          - os: macos-13
             artifact_name: aff4-macos-x86_64
             binary_path: dist/aff4
-            manylinux: false
+            use_docker: false
+
+          # ── macOS ARM64 (Apple Silicon) ───────────────────────────────────
+          - os: macos-14
+            artifact_name: aff4-macos-arm64
+            binary_path: dist/aff4
+            use_docker: false
 
     steps:
       - uses: actions/checkout@v4
 
       # ── Windows / macOS ────────────────────────────────────────────────────
       - name: Set up Python 3.11
-        if: ${{ !matrix.manylinux }}
+        if: ${{ !matrix.use_docker }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
       - name: Install deps and build
-        if: ${{ !matrix.manylinux }}
+        if: ${{ !matrix.use_docker }}
         run: |
           pip install -r requirements.txt pyinstaller
           pyinstaller aff4.spec
 
-      # ── Linux (Debian 11 / glibc 2.31) ────────────────────────────────────
-      # python:3.11-slim-bullseye is built with --enable-shared (required by
-      # PyInstaller) and targets glibc 2.31, covering Ubuntu 20.04+,
-      # Debian 11+, Fedora 32+. manylinux containers cannot be used here
-      # because their Python builds omit the shared library.
+      # ── Linux (Debian 11 / glibc 2.31, native arch) ───────────────────────
+      # python:3.11-slim-bullseye is a multi-arch image; Docker pulls the
+      # variant matching the runner (amd64 or arm64) automatically.
       - name: Build in python:3.11-slim-bullseye container
-        if: ${{ matrix.manylinux }}
+        if: ${{ matrix.use_docker }}
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/workspace" \
