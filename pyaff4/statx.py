@@ -65,6 +65,7 @@ SYSCALLS = {
     "arc": 291,
     "arm": 397,
     "arm64": 291,
+    "aarch64": 291,   # Linux kernel reports ARM64 as "aarch64"
     "armoabi": 9437581,
     "c6x": 291,
     "csky": 291,
@@ -84,6 +85,7 @@ SYSCALLS = {
     "powerpc": 383,
     "powerpc64": 383,
     "riscv": 291,
+    "riscv64": 291,   # Linux kernel reports RISC-V 64-bit as "riscv64"
     "s390": 379,
     "s390x": 379,
     "score": 291,
@@ -102,10 +104,13 @@ SYSCALLS = {
 AT_FDCWD = -100 # fcntl.h
 AT_SYMLINK_NOFOLLOW = 0x100 # fcntl.h
 STATX_ALL = 0xfff # stat.h
-SYS_STATX = SYSCALLS[platform.machine()]
+SYS_STATX = SYSCALLS.get(platform.machine())
 
 
 def statx(path):
+    if SYS_STATX is None:
+        raise OSError(f"statx syscall number unknown for architecture: {platform.machine()}")
+
     pathname = ctypes.c_char_p(utils.SmartStr(path))
     statxbuf = ctypes.create_string_buffer(ctypes.sizeof(Statx))
 

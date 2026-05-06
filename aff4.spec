@@ -21,6 +21,7 @@ lz4_datas, lz4_binaries, lz4_hiddenimports = collect_all('lz4')
 nacl_datas, nacl_binaries, nacl_hiddenimports = collect_all('nacl')
 crypto_datas, crypto_binaries, crypto_hiddenimports = collect_all('Crypto')
 pyaff4_datas, pyaff4_binaries, pyaff4_hiddenimports = collect_all('pyaff4')
+fc_datas, fc_binaries, fc_hiddenimports = collect_all('fastchunking')
 
 a = Analysis(
     ['aff4.py'],
@@ -30,7 +31,8 @@ a = Analysis(
         lz4_binaries +
         nacl_binaries +
         crypto_binaries +
-        pyaff4_binaries
+        pyaff4_binaries +
+        fc_binaries
     ),
     datas=(
         rdflib_datas +
@@ -38,7 +40,8 @@ a = Analysis(
         lz4_datas +
         nacl_datas +
         crypto_datas +
-        pyaff4_datas
+        pyaff4_datas +
+        fc_datas
     ),
     hiddenimports=(
         rdflib_hiddenimports +
@@ -91,6 +94,8 @@ a = Analysis(
             'html5lib',
             'passlib',
             'expiringdict',
+            'fastchunking',
+            'fastchunking._rabinkarprh',
         ]
     ),
     hookspath=[],

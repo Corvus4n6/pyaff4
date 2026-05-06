@@ -1,0 +1,7 @@
+# Compiled build artifacts — keep only the pre-generated C++ binding
+build/lib*/
+build/temp*/
+*.egg-info/
+__pycache__/
+*.pyc
+*.so
