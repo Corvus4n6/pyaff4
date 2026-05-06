@@ -8,36 +8,57 @@ on:
 
 jobs:
   build:
-    name: Build (${{ matrix.os }})
+    name: Build (${{ matrix.artifact_name }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             artifact_name: aff4-linux-x86_64
             binary_path: dist/aff4
+            manylinux: true
           - os: windows-latest
             artifact_name: aff4-windows-x86_64
             binary_path: dist/aff4.exe
+            manylinux: false
           - os: macos-latest
             artifact_name: aff4-macos-x86_64
             binary_path: dist/aff4
+            manylinux: false
 
     steps:
       - uses: actions/checkout@v4
 
+      # ── Windows / macOS ────────────────────────────────────────────────────
       - name: Set up Python 3.11
+        if: ${{ !matrix.manylinux }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt pyinstaller
+      - name: Install deps and build
+        if: ${{ !matrix.manylinux }}
+        run: |
+          pip install -r requirements.txt pyinstaller
+          pyinstaller aff4.spec
 
-      - name: Build binary
-        run: pyinstaller aff4.spec
+      # ── Linux (manylinux2014, glibc 2.17) ─────────────────────────────────
+      # Builds inside a CentOS-7-based container so the binary's minimum
+      # glibc requirement is 2.17, compatible with any Linux since ~2012.
+      - name: Build in manylinux2014 container
+        if: ${{ matrix.manylinux }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            quay.io/pypa/manylinux2014_x86_64 \
+            bash -c "
+              set -e
+              /opt/python/cp311-cp311/bin/pip install -r requirements.txt pyinstaller
+              /opt/python/cp311-cp311/bin/pyinstaller aff4.spec
+            "
 
       - name: Smoke test
         run: ${{ matrix.binary_path }} --help
