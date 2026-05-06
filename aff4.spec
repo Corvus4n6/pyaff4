@@ -143,7 +143,7 @@ exe = EXE(
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch='universal2' if sys.platform == 'darwin' else None,
+    target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
 )

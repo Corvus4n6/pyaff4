@@ -35,9 +35,9 @@ jobs:
             binary_path: dist/aff4.exe
             use_docker: false
 
-          # ── macOS universal2 (Intel + Apple Silicon in one fat binary) ────
+          # ── macOS ARM64 (Apple Silicon; runs via Rosetta 2 on Intel) ─────
           - os: macos-14
-            artifact_name: aff4-macos-universal2
+            artifact_name: aff4-macos-arm64
             binary_path: dist/aff4
             use_docker: false
 
