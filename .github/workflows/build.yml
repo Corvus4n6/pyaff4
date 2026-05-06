@@ -34,18 +34,14 @@ jobs:
             artifact_name: aff4-windows-x86_64
             binary_path: dist/aff4.exe
             use_docker: false
+            pyinstaller_args: ""
 
-          # ── macOS x86_64 (Intel, macos-13 is the last Intel runner) ───────
-          - os: macos-13
-            artifact_name: aff4-macos-x86_64
-            binary_path: dist/aff4
-            use_docker: false
-
-          # ── macOS ARM64 (Apple Silicon) ───────────────────────────────────
+          # ── macOS universal2 (Intel + Apple Silicon in one fat binary) ────
           - os: macos-14
-            artifact_name: aff4-macos-arm64
+            artifact_name: aff4-macos-universal2
             binary_path: dist/aff4
             use_docker: false
+            pyinstaller_args: "--target-arch universal2"
 
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +58,7 @@ jobs:
         if: ${{ !matrix.use_docker }}
         run: |
           pip install -r requirements.txt pyinstaller
-          pyinstaller aff4.spec
+          pyinstaller ${{ matrix.pyinstaller_args }} aff4.spec
 
       # ── Linux (Debian 11 / glibc 2.31, native arch) ───────────────────────
       # python:3.11-slim-bullseye is a multi-arch image; Docker pulls the
