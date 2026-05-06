@@ -83,8 +83,11 @@ class FSMetadata:
             accessed = datetime.fromtimestamp(s.st_atime, local_tz)
             recordChanged = datetime.fromtimestamp(s.st_ctime, local_tz)
 
-            sx = statx.statx(filename)
-            birthTime = datetime.fromtimestamp(sx.get_btime(), local_tz)
+            try:
+                sx = statx.statx(filename)
+                birthTime = datetime.fromtimestamp(sx.get_btime(), local_tz)
+            except OSError:
+                birthTime = None
             return LinuxFSMetadata(filename, filename, size, lastWritten, accessed, recordChanged, birthTime)
 
 class ClassicUnixMetadata(FSMetadata):
