@@ -1,0 +1,51 @@
+name: Build standalone binaries
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: aff4-linux-x86_64
+            binary_path: dist/aff4
+          - os: windows-latest
+            artifact_name: aff4-windows-x86_64
+            binary_path: dist/aff4.exe
+          - os: macos-latest
+            artifact_name: aff4-macos-x86_64
+            binary_path: dist/aff4
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build binary
+        run: pyinstaller aff4.spec
+
+      - name: Smoke test
+        run: ${{ matrix.binary_path }} --help
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.binary_path }}
+          if-no-files-found: error
+          retention-days: 30
