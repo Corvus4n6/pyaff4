@@ -170,6 +170,14 @@ class AFF4Image(aff4.AFF4Stream):
         # used for identifying if a bevy now exceeds its initial size
         self.bevy_size_has_changed = False
 
+        # State for lazy on-demand RO bevy reading (_ReadPartialRO).
+        # The bevy file is kept open across sequential chunk reads so we
+        # avoid re-opening it for every chunk, but we never buffer more
+        # than one decompressed chunk at a time.
+        self._ro_bevy_id = -1
+        self._ro_bevy_stream = None
+        self._ro_bevy_index = []
+
 
     def _write_bevy_index(self, volume, bevy_urn, bevy_index, flush=False):
         """Write the index segment for the specified bevy_urn."""
@@ -392,9 +400,18 @@ class AFF4Image(aff4.AFF4Stream):
 
             self.resolver.DeleteSubject(self.urn)
             self._dirty = False
+        self._close_ro_bevy()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._close_ro_bevy()
+        return super().__exit__(exc_type, exc_value, traceback)
 
     def Close(self):
-        pass
+        self._close_ro_bevy()
+
+    def Prepare(self):
+        self._close_ro_bevy()
+        super().Prepare()
 
     def Read(self, length):
         length = int(length)
@@ -489,19 +506,26 @@ class AFF4Image(aff4.AFF4Stream):
                 LOGGER.info("Loaded Bevy Index %s entries=%x", bevy_index_urn, len(result))
             return result
 
-    def reloadBevy(self, bevy_id):
+    def _bevy_urn(self, bevy_id):
+        """Return the bevy URN for bevy_id, handling the Axiom path quirk."""
         if self.version is not None and "AXIOMProcess" in self.version.tool:
-            # Axiom does strange stuff with paths and URNs, we need to fix the URN for reading bevys
             volume_urn = '/'.join(self.urn.SerializeToString().split('/')[0:3])
             original_filename = self.resolver.Get(volume_urn, self.urn, rdfvalue.URN(lexicon.standard11.pathName))[0]
             original_filename_escaped = urllib.parse.quote(str(original_filename).encode(), safe='/\\')
             corrected_urn = f"{volume_urn}/{original_filename_escaped}\\{'%08d' % bevy_id}".encode()
-            print(corrected_urn)
-            bevy_urn = rdfvalue.URN().UnSerializeFromString(corrected_urn)
-            # bevy_index_urn = rdfvalue.URN("%s.index" % bevy_urn) # This is unused anyway apparently
-        else:
-            bevy_urn = self.urn.Append("%08d" % bevy_id)
-            bevy_index_urn = rdfvalue.URN("%s.index" % bevy_urn)
+            return rdfvalue.URN().UnSerializeFromString(corrected_urn)
+        return self.urn.Append("%08d" % bevy_id)
+
+    def _close_ro_bevy(self):
+        """Return the lazily-held RO bevy stream to the resolver cache."""
+        if self._ro_bevy_stream is not None:
+            self._ro_bevy_stream.__exit__(None, None, None)
+            self._ro_bevy_stream = None
+            self._ro_bevy_id = -1
+            self._ro_bevy_index = []
+
+    def reloadBevy(self, bevy_id):
+        bevy_urn = self._bevy_urn(bevy_id)
         if LOGGER.isEnabledFor(logging.INFO):
             LOGGER.info("Reload Bevy %s", bevy_urn)
         chunks = []
@@ -533,39 +557,56 @@ class AFF4Image(aff4.AFF4Stream):
         return self.doDecompress(chunk, bevy_id*self.chunks_per_segment + chunk_id)
 
     def _ReadPartialRO(self, chunk_id, chunks_to_read):
-        chunks_read = 0
-        result = b""
+        """Read-only path: keep one bevy open at a time, decompress one chunk at a time."""
         if LOGGER.isEnabledFor(logging.INFO):
             LOGGER.info("ReadPartialRO chunk=%x count=%x", chunk_id, chunks_to_read)
+
+        chunks_read = 0
+        result = b""
+
         while chunks_to_read > 0:
             local_chunk_index = chunk_id % self.chunks_per_segment
             bevy_id = chunk_id // self.chunks_per_segment
 
+            # Serve from chunk cache when available.
             r = self.cache.get(chunk_id)
-            if r != None:
+            if r is not None:
                 result += r
                 chunks_to_read -= 1
                 chunk_id += 1
                 chunks_read += 1
                 continue
 
-            if not self.bevy_is_loaded_from_disk:
-                self.reloadBevy(0)
-                self.buffer = self.bevy[0]
+            # Open (or reuse) the bevy file for this bevy_id.
+            if self._ro_bevy_id != bevy_id:
+                self._close_ro_bevy()
+                bevy_urn = self._bevy_urn(bevy_id)
+                self._ro_bevy_stream = self.resolver.AFF4FactoryOpen(
+                    bevy_urn, version=self.version).__enter__()
+                self._ro_bevy_id = bevy_id
+                self._ro_bevy_index = self._parse_bevy_index(self._ro_bevy_stream)
+                self.bevy_is_loaded_from_disk = True
+                self.bevy_number = bevy_id
 
-            if bevy_id != self.bevy_number:
-                self.reloadBevy(bevy_id)
+            if local_chunk_index >= len(self._ro_bevy_index):
+                break
 
-            # read directly from the bevvy
-            ss = len(self.bevy)
-            if local_chunk_index < len(self.bevy):
-                r = self.bevy[local_chunk_index]
-                self.cache[chunk_id] = r
-                result += r
-                chunks_to_read -= 1
-                chunk_id += 1
-                chunks_read += 1
-                continue
+            # Decompress exactly the one requested chunk.
+            off, sz = self._ro_bevy_index[local_chunk_index]
+            self._ro_bevy_stream.SeekRead(off, 0)
+            chunk_data = self._ro_bevy_stream.Read(sz)
+            r = self.onChunkLoad(chunk_data, bevy_id, local_chunk_index)
+
+            # Trim the final chunk when it overshoots the declared stream size.
+            end_addr = (bevy_id * self.chunks_per_segment + local_chunk_index + 1) * self.chunk_size
+            if end_addr > self.size:
+                r = r[:self.chunk_size - (end_addr - self.size)]
+
+            self.cache[chunk_id] = r
+            result += r
+            chunks_to_read -= 1
+            chunk_id += 1
+            chunks_read += 1
 
         return chunks_read, result
 
