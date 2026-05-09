@@ -53,6 +53,34 @@ try:
 except:
     pass
 
+_DATASTREAM_PREDICATE = lexicon.AFF4_NAMESPACE + "dataStream"
+
+
+class _Sha512FilteringGraph(rdflib.Graph):
+    """rdflib.Graph subclass that diverts sha512 triples away from rdflib.
+
+    Hash-based AFF4 images store millions of <aff4:sha512:HASH> <dataStream>
+    <byte-range-URN> triples. Loading these into rdflib creates tens of GB of
+    Python objects (S/P/O indices).  This subclass intercepts such triples
+    during parsing and stores only the dataStream value in a compact plain-dict
+    (sha512_urn_str → datastream_urn_str), which uses roughly 1/4 the memory.
+    All other triples are forwarded to the rdflib graph normally.
+    """
+
+    def __init__(self, sha512_store, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._sha512_store = sha512_store
+
+    def add(self, triple):
+        s, p, o = triple
+        if str(s).startswith("aff4:sha512:"):
+            if str(p) == _DATASTREAM_PREDICATE:
+                self._sha512_store[str(s)] = str(o)
+            # drop all other predicates for sha512 subjects — only dataStream
+            # is accessed at runtime (via AFF4FactoryOpen's sha512 branch)
+            return
+        super().add(triple)
+
 # Coerce rdflib to use
 rdflib.term._toPythonMapping[URIRef(XSD_NAMESPACE + 'hexBinary')] = lambda s: binascii.unhexlify(s)
 
@@ -264,6 +292,9 @@ class MemoryDataStore:
             self.ObjectCache = parent.ObjectCache
         self.flush_callbacks = {}
         self.parent = parent
+        # Compact store for sha512 block-hash → dataStream byte-range URN.
+        # Avoids loading millions of rdflib triples for hash-based images.
+        self._sha512_store = {}
 
         if self.lexicon == lexicon.legacy:
             self.streamFactory = stream_factory.PreStdStreamFactory(
@@ -539,7 +570,7 @@ class MemoryDataStore:
 
     def LoadFromTurtle(self, stream, volume_arn):
         data = streams.ReadAll(stream)
-        g = rdflib.Graph()
+        g = _Sha512FilteringGraph(self._sha512_store)
         g.parse(data=data, format="turtle")
 
         for urn, attr, value in g:
@@ -583,12 +614,13 @@ class MemoryDataStore:
         elif urn.SerializeToString().startswith("aff4:sha512"):
             # Don't use the cache for these as they are low cost
             # and they will push aside heavier weight things
-            #bytestream_reference_id = self.Get(urn, urn, rdfvalue.URN(lexicon.standard.dataStream))
-            #cached_obj = self.ObjectCache.Get(bytestream_reference_id)
-            #if cached_obj:
-            #    cached_obj.Prepare()
-            #    return cached_obj
-            bytestream_reference_id = self.GetUnique(lexicon.any, urn, rdfvalue.URN(lexicon.standard.dataStream))
+            sha512_key = urn.SerializeToString()
+            ds_str = self._sha512_store.get(sha512_key)
+            if ds_str is not None:
+                bytestream_reference_id = rdfvalue.URN(ds_str)
+            else:
+                bytestream_reference_id = self.GetUnique(
+                    lexicon.any, urn, rdfvalue.URN(lexicon.standard.dataStream))
             return aff4_map.ByteRangeARN(version, resolver=self, urn=bytestream_reference_id)
         elif isByteRangeARN(urn.SerializeToString()):
             return aff4_map.ByteRangeARN(version, resolver=self, urn=urn)

@@ -464,61 +464,258 @@ class ScudetteAFF4Map(AFF4Map):
 
 
 class AFF4Map2(AFF4Map):
+    # When the idx file exceeds this size, use streaming mode to avoid loading
+    # millions of Python URN objects into memory (e.g. hash-based images).
+    _LARGE_IDX_THRESHOLD = 1_000_000  # ~1 MB idx → ~10 000 sha512 entries
+
     def LoadFromURN(self):
         map_urn = self.urn.Append("map")
         map_idx_urn = self.urn.Append("idx")
+        self._streaming = False
 
-        # Parse the map out of the map stream. If the stream does not exist yet
-        # we just start with an empty map.
         try:
             with self.resolver.AFF4FactoryOpen(map_idx_urn, version=self.version) as map_idx:
-                self.targets = [rdfvalue.URN(utils.SmartUnicode(x))
-                                for x in map_idx.Read(map_idx.Size()).splitlines()]
+                idx_size = map_idx.Size()
 
-            with self.resolver.AFF4FactoryOpen(map_urn, version=self.version) as map_stream:
-                format_str = "<QQQI"
-                bufsize = map_stream.Size()
-                buf = map_stream.Read(bufsize)
-
-                read_length = struct.calcsize(Range.format_str)
-
-                lastUpperOffset = -1
-                lastLowerOffset =  -1
-                lastLength = -1
-                lastTarget = -1
-
-                offset = 0
-                while offset < bufsize:
-                    (upperOffset, length, lowerOffset, target) = struct.unpack_from(format_str, buf, offset)
-                    offset += read_length
-
-                    if lastUpperOffset == -1:
-                        lastUpperOffset = upperOffset
-                        lastLowerOffset = lowerOffset
-                        lastLength = length
-                        lastTarget = target
-                        continue
-
-                    if lastUpperOffset + lastLength == upperOffset and lastLowerOffset + lastLength == lowerOffset and lastTarget == target:
-                        # these are adjoining
-                        lastLength = lastLength + length
-                        continue
-                    else:
-                        range = Range.FromList([lastUpperOffset, lastLength, lastLowerOffset, lastTarget])
-                        if range.length > 0:
-                            self.tree.addi(range.map_offset, range.map_end, range)
-                        lastUpperOffset = upperOffset
-                        lastLowerOffset = lowerOffset
-                        lastLength = length
-                        lastTarget = target
-
-                range = Range.FromList([lastUpperOffset, lastLength, lastLowerOffset, lastTarget])
-                if range.length > 0:
-                    self.tree.addi(range.map_offset, range.map_end, range)
+            if idx_size > self._LARGE_IDX_THRESHOLD:
+                self._init_streaming_mode(map_urn, map_idx_urn)
+            else:
+                self._load_full_map(map_urn, map_idx_urn)
 
         except IOError:
-            # we get IOErrors here on creation from scratch. This is safe and expected.
+            # IOErrors on creation from scratch are safe and expected.
             pass
+
+    def _load_full_map(self, map_urn, map_idx_urn):
+        """Original behaviour: load idx and map entirely into an interval tree."""
+        with self.resolver.AFF4FactoryOpen(map_idx_urn, version=self.version) as map_idx:
+            self.targets = [rdfvalue.URN(utils.SmartUnicode(x))
+                            for x in map_idx.Read(map_idx.Size()).splitlines()]
+
+        with self.resolver.AFF4FactoryOpen(map_urn, version=self.version) as map_stream:
+            format_str = "<QQQI"
+            bufsize = map_stream.Size()
+            buf = map_stream.Read(bufsize)
+
+            read_length = struct.calcsize(Range.format_str)
+
+            lastUpperOffset = -1
+            lastLowerOffset = -1
+            lastLength = -1
+            lastTarget = -1
+
+            offset = 0
+            while offset < bufsize:
+                (upperOffset, length, lowerOffset, target) = struct.unpack_from(format_str, buf, offset)
+                offset += read_length
+
+                if lastUpperOffset == -1:
+                    lastUpperOffset = upperOffset
+                    lastLowerOffset = lowerOffset
+                    lastLength = length
+                    lastTarget = target
+                    continue
+
+                if (lastUpperOffset + lastLength == upperOffset and
+                        lastLowerOffset + lastLength == lowerOffset and
+                        lastTarget == target):
+                    lastLength = lastLength + length
+                    continue
+                else:
+                    range = Range.FromList([lastUpperOffset, lastLength, lastLowerOffset, lastTarget])
+                    if range.length > 0:
+                        self.tree.addi(range.map_offset, range.map_end, range)
+                    lastUpperOffset = upperOffset
+                    lastLowerOffset = lowerOffset
+                    lastLength = length
+                    lastTarget = target
+
+            range = Range.FromList([lastUpperOffset, lastLength, lastLowerOffset, lastTarget])
+            if range.length > 0:
+                self.tree.addi(range.map_offset, range.map_end, range)
+
+    def _init_streaming_mode(self, map_urn, map_idx_urn):
+        """Set up memory-efficient streaming for large maps.
+
+        Instead of building a Python interval tree (O(N) objects), the raw map
+        bytes are stored in a single compact bytearray and binary-searched.  The
+        idx file is accessed with fixed-length line seeks so it never needs to be
+        fully loaded into memory.
+        """
+        self._streaming = True
+        self._stream_map_urn = map_urn
+        self._stream_idx_urn = map_idx_urn
+
+        # Load the raw map bytes – a flat bytearray uses ~28 bytes/entry with no
+        # Python object overhead, vs ~350 bytes/entry for an interval tree.
+        read_length = struct.calcsize(Range.format_str)
+        with self.resolver.AFF4FactoryOpen(map_urn, version=self.version) as map_stream:
+            map_size = map_stream.Size()
+            self._stream_map_data = map_stream.Read(map_size)
+
+        self._stream_n_entries = len(self._stream_map_data) // read_length
+
+        # Determine logical file size from the last map entry.
+        if self._stream_n_entries > 0:
+            last_start = (self._stream_n_entries - 1) * read_length
+            last_entry = Range.FromSerialized(
+                self._stream_map_data[last_start:last_start + read_length])
+            self._stream_size = last_entry.map_end
+        else:
+            self._stream_size = 0
+
+        # Determine the fixed line length of the idx file by reading its first line.
+        # sha512 and UUID target URNs both have a fixed length within a given file.
+        self._stream_idx_line_len = None
+        try:
+            with self.resolver.AFF4FactoryOpen(map_idx_urn, version=self.version) as idx:
+                probe = idx.Read(300)
+            nl = probe.find(b'\n')
+            if nl >= 0:
+                self._stream_idx_line_len = nl + 1  # include the newline
+        except IOError:
+            pass
+
+        # Bounded LRU cache for recently resolved target URNs.
+        self._stream_idx_cache = {}       # target_id (int) → rdfvalue.URN
+        self._stream_idx_cache_keys = []  # insertion-order list for eviction
+
+        # State for sequential read optimisation.
+        self._stream_current_entry = -1
+        self._stream_current_range = None
+
+    # ------------------------------------------------------------------
+    # Streaming helpers
+    # ------------------------------------------------------------------
+
+    def _get_streaming_range(self, offset):
+        """Return the Range that covers *offset*, using a binary search on the
+        in-memory map bytearray.  For sequential access the previous result is
+        checked first to avoid redundant searching."""
+        read_length = struct.calcsize(Range.format_str)
+
+        # Fast path: current range still covers the requested offset.
+        if (self._stream_current_range is not None and
+                self._stream_current_range.map_offset <= offset <
+                self._stream_current_range.map_end):
+            return self._stream_current_range
+
+        # Try the immediately following entry (common for sequential reads).
+        next_idx = self._stream_current_entry + 1
+        if 0 <= next_idx < self._stream_n_entries:
+            start = next_idx * read_length
+            r = Range.FromSerialized(self._stream_map_data[start:start + read_length])
+            if r.map_offset <= offset < r.map_end:
+                self._stream_current_entry = next_idx
+                self._stream_current_range = r
+                return r
+
+        # Fall back to binary search.
+        lo, hi = 0, self._stream_n_entries - 1
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            start = mid * read_length
+            r = Range.FromSerialized(self._stream_map_data[start:start + read_length])
+            if r.map_offset <= offset < r.map_end:
+                self._stream_current_entry = mid
+                self._stream_current_range = r
+                return r
+            elif offset < r.map_offset:
+                hi = mid - 1
+            else:
+                lo = mid + 1
+        return None
+
+    def _get_streaming_target(self, target_id):
+        """Return the target URN for *target_id* using the idx file.
+
+        Reads a single fixed-length line from the idx file (one seek + one
+        read), caching the result to avoid repeated I/O for deduplicated
+        chunks."""
+        cached = self._stream_idx_cache.get(target_id)
+        if cached is not None:
+            return cached
+
+        urn = None
+        if self._stream_idx_line_len is not None:
+            offset = target_id * self._stream_idx_line_len
+            try:
+                with self.resolver.AFF4FactoryOpen(
+                        self._stream_idx_urn, version=self.version) as idx:
+                    idx.SeekRead(offset)
+                    line = idx.Read(self._stream_idx_line_len).rstrip(b'\r\n')
+                urn = rdfvalue.URN(utils.SmartUnicode(line))
+            except IOError:
+                pass
+
+        if urn is None:
+            return None
+
+        # Bounded cache – evict oldest when full.
+        _CACHE_MAX = 100_000
+        if len(self._stream_idx_cache) >= _CACHE_MAX:
+            oldest = self._stream_idx_cache_keys.pop(0)
+            self._stream_idx_cache.pop(oldest, None)
+        self._stream_idx_cache[target_id] = urn
+        self._stream_idx_cache_keys.append(target_id)
+        return urn
+
+    def _streaming_read(self, length):
+        """Read *length* bytes starting at self.readptr using the streaming map."""
+        result = b""
+        remaining = length
+
+        while remaining > 0:
+            range_obj = self._get_streaming_range(self.readptr)
+            if range_obj is None:
+                break  # gap or end of data
+
+            to_read = min(remaining, range_obj.map_end - self.readptr)
+            target_urn = self._get_streaming_target(range_obj.target_id)
+            if target_urn is None:
+                result += b"\x00" * to_read
+                self.readptr += to_read
+                remaining -= to_read
+                continue
+
+            try:
+                with self.resolver.AFF4FactoryOpen(
+                        target_urn, version=self.version) as tgt:
+                    tgt.SeekRead(range_obj.target_offset_at_map_offset(self.readptr))
+                    buf = tgt.Read(to_read)
+                    if not buf:
+                        break
+                    result += buf
+                    remaining -= len(buf)
+                    self.readptr += len(buf)
+            except IOError:
+                LOGGER.debug("*** Stream %s not found. Substituting zeros. ***",
+                             target_urn)
+                result += b"\x00" * to_read
+                remaining -= to_read
+                self.readptr += to_read
+
+        return result
+
+    # ------------------------------------------------------------------
+    # AFF4Stream overrides for streaming mode
+    # ------------------------------------------------------------------
+
+    def Read(self, length):
+        if self._streaming:
+            return self._streaming_read(length)
+        return super().Read(length)
+
+    def Size(self):
+        if self._streaming:
+            return self._stream_size
+        return super().Size()
+
+    def Prepare(self):
+        if self._streaming:
+            self._stream_current_entry = -1
+            self._stream_current_range = None
+        super().Prepare()
 
 def isByteRangeARN(urn):
     if not urn.startswith("aff4://"):
