@@ -19,7 +19,7 @@ import logging
 import rdflib
 import re
 import os
-import sqlite3
+import struct
 import tempfile
 import traceback
 import subprocess
@@ -54,18 +54,15 @@ try:
 except:
     pass
 
-_DATASTREAM_PREDICATE = lexicon.AFF4_NAMESPACE + "dataStream"
-
-# Matches a sha512 triple written on a single line, e.g.:
-#   <aff4:sha512:BASE64HASH> aff4:dataStream <aff4://UUID/data[offset:length]> .
-# Handles both prefixed (aff4:dataStream) and full-URI predicate forms.
-# SHA-512 encodes to 86 chars (base64url, no padding) or 88 (with padding).
-import re as _re
-_SHA512_TRIPLE_RE = _re.compile(
+# Matches a sha512 triple and captures the sha512 URN (group 1) and
+# the ByteRangeARN (group 2).
+_SHA512_TRIPLE_RE = re.compile(
     rb'^<(aff4:sha512:[A-Za-z0-9_=+/\-]{80,92})>\s+'
     rb'(?:<[^>]*?dataStream[^>]*>|[A-Za-z][A-Za-z0-9_]*:dataStream)\s+'
-    rb'<([^>]+)>\s*\.\s*$'
+    rb'<([^>]+\[[0-9A-Fa-fx]+:[0-9A-Fa-fx]+\])>\s*\.\s*$'
 )
+# Maximum entries kept in _sha512_store (~280 bytes each ≈ 280 MB at limit).
+_SHA512_DICT_LIMIT = 1_000_000
 
 
 
@@ -280,17 +277,12 @@ class MemoryDataStore:
             self.ObjectCache = parent.ObjectCache
         self.flush_callbacks = {}
         self.parent = parent
-        # On-disk SQLite store for sha512 block-hash → dataStream byte-range URN.
-        # A Python dict at ~280 bytes/entry would use 28 GB for 100M chunks; SQLite
-        # keeps data on disk and only pages in what's needed.
-        self._sha512_db_fd, self._sha512_db_path = tempfile.mkstemp(suffix='.db')
-        os.close(self._sha512_db_fd)
-        self._sha512_db = sqlite3.connect(self._sha512_db_path)
-        self._sha512_db.execute(
-            'CREATE TABLE sha512(urn TEXT PRIMARY KEY, datastream TEXT)')
-        self._sha512_db.execute('PRAGMA synchronous=OFF')
-        self._sha512_db.execute('PRAGMA journal_mode=OFF')
-        self._sha512_db.execute('PRAGMA cache_size=-65536')  # 64 MB page cache
+        # Compact str→str store for sha512 → dataStream ByteRangeARN.
+        # Capped at _SHA512_DICT_LIMIT entries (~280 bytes each) so loading a
+        # large turtle doesn't fill all available RAM.  Images with more unique
+        # blocks than the limit are verified via block_hasher (no dict lookup
+        # needed); LinearHasher2 will fail gracefully for those images.
+        self._sha512_store = {}
 
         if self.lexicon == lexicon.legacy:
             self.streamFactory = stream_factory.PreStdStreamFactory(
@@ -319,20 +311,6 @@ class MemoryDataStore:
             self.ObjectCache.Flush(partial=True)
         for cb in list(self.flush_callbacks.values()):
             cb()
-        # Clean up the sha512 SQLite temp file (guard against double-close).
-        db = getattr(self, '_sha512_db', None)
-        if db is not None:
-            try:
-                db.close()
-            except Exception:
-                pass
-            self._sha512_db = None
-        db_path = getattr(self, '_sha512_db_path', None)
-        if db_path and os.path.exists(db_path):
-            try:
-                os.unlink(db_path)
-            except Exception:
-                pass
 
     def DeleteSubject(self, subject):
         self.store.pop(rdfvalue.URN(subject), None)
@@ -578,42 +556,16 @@ class MemoryDataStore:
             self.LoadFromTurtle(fd, zip.urn)
             self.loadedVolumes.append(zip.urn)
 
-    def _ensure_sha512_db(self):
-        """Re-open the sha512 SQLite DB if it was closed by a prior Flush()."""
-        if self._sha512_db is not None:
-            return
-        self._sha512_db_fd, self._sha512_db_path = tempfile.mkstemp(suffix='.db')
-        os.close(self._sha512_db_fd)
-        self._sha512_db = sqlite3.connect(self._sha512_db_path)
-        self._sha512_db.execute(
-            'CREATE TABLE sha512(urn TEXT PRIMARY KEY, datastream TEXT)')
-        self._sha512_db.execute('PRAGMA synchronous=OFF')
-        self._sha512_db.execute('PRAGMA journal_mode=OFF')
-        self._sha512_db.execute('PRAGMA cache_size=-65536')
-
     def LoadFromTurtle(self, stream, volume_arn):
-        # Stream the turtle file line by line instead of loading it all at once.
-        # For hash-based images, information.turtle can be many GB (one line per
-        # unique block-hash).  Calling ReadAll() would try to allocate that many
-        # GB as a single bytes object and OOM before rdflib even starts.
+        # Stream the turtle file line by line to avoid loading it all at once.
+        # For hash-based images, information.turtle can be many GB (one sha512
+        # triple per unique block).
         #
-        # Lines whose subject are aff4:sha512 URNs are batch-inserted into an
-        # on-disk SQLite database (_sha512_db).  Everything else is collected into
-        # a small buffer and handed to rdflib as normal.
-        self._ensure_sha512_db()
-        _BATCH = 50_000  # insert rows per SQLite transaction
+        # sha512 lines are stored in _sha512_store (capped dict) so that small
+        # images are fully resolvable.  Non-sha512 lines are handed to rdflib.
         non_sha512_lines = []
-        pending = []
         buf = bytearray()
         _CHUNK = 128 * 1024  # read 128 KB at a time
-
-        def _flush_pending():
-            if pending:
-                self._sha512_db.executemany(
-                    'INSERT OR REPLACE INTO sha512(urn, datastream) VALUES (?,?)',
-                    pending)
-                self._sha512_db.commit()
-                pending.clear()
 
         while True:
             chunk = stream.read(_CHUNK)
@@ -634,10 +586,10 @@ class MemoryDataStore:
                 if stripped.startswith(b'<aff4:sha512:'):
                     m = _SHA512_TRIPLE_RE.match(stripped)
                     if m:
-                        pending.append((m.group(1).decode('ascii'),
-                                        m.group(2).decode('ascii')))
-                        if len(pending) >= _BATCH:
-                            _flush_pending()
+                        if len(self._sha512_store) < _SHA512_DICT_LIMIT:
+                            sha_key = m.group(1).decode('ascii')
+                            byterange = m.group(2).decode('ascii')
+                            self._sha512_store[sha_key] = byterange
                         continue
                 non_sha512_lines.append(line)
 
@@ -645,8 +597,6 @@ class MemoryDataStore:
 
         if buf:  # trailing content with no final newline
             non_sha512_lines.append(bytes(buf))
-
-        _flush_pending()  # commit any remaining sha512 rows
 
         # Parse only the (small) non-sha512 portion with rdflib.
         remaining = b''.join(non_sha512_lines)
@@ -693,18 +643,17 @@ class MemoryDataStore:
             obj = self.streamFactory.createSymbolic(urn)
         elif urn.SerializeToString().startswith("aff4:sha512"):
             # Don't use the cache for these as they are low cost
-            # and they will push aside heavier weight things
+            # and they will push aside heavier weight things.
             sha512_key = urn.SerializeToString()
-            row = None
-            if self._sha512_db is not None:
-                row = self._sha512_db.execute(
-                    'SELECT datastream FROM sha512 WHERE urn=?', (sha512_key,)
-                ).fetchone()
-            if row is not None:
-                bytestream_reference_id = rdfvalue.URN(row[0])
-            else:
-                bytestream_reference_id = self.GetUnique(
-                    lexicon.any, urn, rdfvalue.URN(lexicon.standard.dataStream))
+            byterange_str = self._sha512_store.get(sha512_key)
+            if byterange_str is not None:
+                return aff4_map.ByteRangeARN(version, resolver=self,
+                                             urn=rdfvalue.URN(byterange_str))
+            # Fall back to RDF store for entries written at image-creation time.
+            bytestream_reference_id = self.GetUnique(
+                lexicon.any, urn, rdfvalue.URN(lexicon.standard.dataStream))
+            if bytestream_reference_id is None:
+                raise IOError("sha512 dataStream not resolvable for %s" % urn)
             return aff4_map.ByteRangeARN(version, resolver=self, urn=bytestream_reference_id)
         elif isByteRangeARN(urn.SerializeToString()):
             return aff4_map.ByteRangeARN(version, resolver=self, urn=urn)

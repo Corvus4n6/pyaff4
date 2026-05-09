@@ -271,12 +271,12 @@ class Validator:
     def calculateMapHash(self, mapURI, storedHashDataType):
         calculatedHash = hashes.new(storedHashDataType)
 
-        calculatedHash.update(self.readSegment(mapURI, "map"))
-        calculatedHash.update(self.readSegment(mapURI, "idx"))
+        self._hashSegmentInto(calculatedHash, mapURI, "map")
+        self._hashSegmentInto(calculatedHash, mapURI, "idx")
 
         try:
-            calculatedHash.update(self.readSegment(mapURI, "mapPath"))
-        except:
+            self._hashSegmentInto(calculatedHash, mapURI, "mapPath")
+        except Exception:
             pass
 
         return hashes.newImmutableHash(calculatedHash.hexdigest(), storedHashDataType)
@@ -290,6 +290,20 @@ class Validator:
             self.listener.onValidHash(hashType, storedHash, mapURI)
 
 
+    def _hashSegmentInto(self, hasher, parentURI, subSegment):
+        """Stream a zip segment through an existing hashlib hasher in 32 KB chunks.
+
+        Avoids loading multi-GB idx/map files entirely into memory; passes each
+        chunk to hasher.update() so peak RSS is O(chunk_size), not O(file_size).
+        """
+        segment_uri = rdfvalue.URN(parentURI).Append(subSegment)
+        with self.resolver.AFF4FactoryOpen(segment_uri) as segment:
+            while True:
+                chunk = segment.Read(32 * 1024)
+                if not chunk:
+                    break
+                hasher.update(chunk)
+
     def readSegment(self, parentURI, subSegment):
         parentURI = rdfvalue.URN(parentURI)
         segment_uri = parentURI.Append(subSegment)
@@ -300,14 +314,8 @@ class Validator:
 
     def calculateSegmentHash(self, parentURI, subSegment, hashDataType):
         calculatedHash = hashes.new(hashDataType)
-
-        data = self.readSegment(parentURI, subSegment)
-        if data != None:
-            calculatedHash.update(data)
-            b = calculatedHash.hexdigest()
-            return hashes.newImmutableHash(b, hashDataType)
-        else:
-            raise Exception
+        self._hashSegmentInto(calculatedHash, parentURI, subSegment)
+        return hashes.newImmutableHash(calculatedHash.hexdigest(), hashDataType)
 
     def checkSame(self, a, b):
         if a != b:

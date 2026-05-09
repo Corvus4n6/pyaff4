@@ -252,9 +252,8 @@ class AFF4Map(aff4.AFF4Stream):
                 with self.resolver.AFF4FactoryOpen(target, version=self.version) as target_stream:
                     target_stream.SeekRead(
                         range.target_offset_at_map_offset(self.readptr))
-
                     buffer = target_stream.Read(length_to_read_in_target)
-                    if buffer == None:
+                    if buffer is None:
                         bytes_read = 0
                     else:
                         bytes_read = len(buffer)
@@ -262,9 +261,9 @@ class AFF4Map(aff4.AFF4Stream):
 
             except IOError:
                 traceback.print_exc()
-                LOGGER.debug("*** Stream %s not found. Substituting zeros. ***",
-                             target_stream)
+                LOGGER.debug("*** Stream %s not found. Substituting zeros. ***", target)
                 result += b"\x00" * length_to_read_in_target
+                bytes_read = length_to_read_in_target
             finally:
                 length -= bytes_read
                 self.readptr += bytes_read
@@ -683,11 +682,11 @@ class AFF4Map2(AFF4Map):
                         target_urn, version=self.version) as tgt:
                     tgt.SeekRead(range_obj.target_offset_at_map_offset(self.readptr))
                     buf = tgt.Read(to_read)
-                    if not buf:
-                        break
-                    result += buf
-                    remaining -= len(buf)
-                    self.readptr += len(buf)
+                if not buf:
+                    break
+                result += buf
+                remaining -= len(buf)
+                self.readptr += len(buf)
             except IOError:
                 LOGGER.debug("*** Stream %s not found. Substituting zeros. ***",
                              target_urn)
