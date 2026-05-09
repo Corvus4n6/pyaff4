@@ -19,6 +19,7 @@ import logging
 import rdflib
 import re
 import os
+import sqlite3
 import tempfile
 import traceback
 import subprocess
@@ -279,9 +280,17 @@ class MemoryDataStore:
             self.ObjectCache = parent.ObjectCache
         self.flush_callbacks = {}
         self.parent = parent
-        # Compact store for sha512 block-hash → dataStream byte-range URN.
-        # Avoids loading millions of rdflib triples for hash-based images.
-        self._sha512_store = {}
+        # On-disk SQLite store for sha512 block-hash → dataStream byte-range URN.
+        # A Python dict at ~280 bytes/entry would use 28 GB for 100M chunks; SQLite
+        # keeps data on disk and only pages in what's needed.
+        self._sha512_db_fd, self._sha512_db_path = tempfile.mkstemp(suffix='.db')
+        os.close(self._sha512_db_fd)
+        self._sha512_db = sqlite3.connect(self._sha512_db_path)
+        self._sha512_db.execute(
+            'CREATE TABLE sha512(urn TEXT PRIMARY KEY, datastream TEXT)')
+        self._sha512_db.execute('PRAGMA synchronous=OFF')
+        self._sha512_db.execute('PRAGMA journal_mode=OFF')
+        self._sha512_db.execute('PRAGMA cache_size=-65536')  # 64 MB page cache
 
         if self.lexicon == lexicon.legacy:
             self.streamFactory = stream_factory.PreStdStreamFactory(
@@ -310,6 +319,20 @@ class MemoryDataStore:
             self.ObjectCache.Flush(partial=True)
         for cb in list(self.flush_callbacks.values()):
             cb()
+        # Clean up the sha512 SQLite temp file (guard against double-close).
+        db = getattr(self, '_sha512_db', None)
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
+            self._sha512_db = None
+        db_path = getattr(self, '_sha512_db_path', None)
+        if db_path and os.path.exists(db_path):
+            try:
+                os.unlink(db_path)
+            except Exception:
+                pass
 
     def DeleteSubject(self, subject):
         self.store.pop(rdfvalue.URN(subject), None)
@@ -555,18 +578,42 @@ class MemoryDataStore:
             self.LoadFromTurtle(fd, zip.urn)
             self.loadedVolumes.append(zip.urn)
 
+    def _ensure_sha512_db(self):
+        """Re-open the sha512 SQLite DB if it was closed by a prior Flush()."""
+        if self._sha512_db is not None:
+            return
+        self._sha512_db_fd, self._sha512_db_path = tempfile.mkstemp(suffix='.db')
+        os.close(self._sha512_db_fd)
+        self._sha512_db = sqlite3.connect(self._sha512_db_path)
+        self._sha512_db.execute(
+            'CREATE TABLE sha512(urn TEXT PRIMARY KEY, datastream TEXT)')
+        self._sha512_db.execute('PRAGMA synchronous=OFF')
+        self._sha512_db.execute('PRAGMA journal_mode=OFF')
+        self._sha512_db.execute('PRAGMA cache_size=-65536')
+
     def LoadFromTurtle(self, stream, volume_arn):
         # Stream the turtle file line by line instead of loading it all at once.
         # For hash-based images, information.turtle can be many GB (one line per
         # unique block-hash).  Calling ReadAll() would try to allocate that many
         # GB as a single bytes object and OOM before rdflib even starts.
         #
-        # Lines whose subject is an aff4:sha512 URN are intercepted directly into
-        # self._sha512_store (compact str→str dict).  Everything else is collected
-        # into a small buffer and handed to rdflib as normal.
+        # Lines whose subject are aff4:sha512 URNs are batch-inserted into an
+        # on-disk SQLite database (_sha512_db).  Everything else is collected into
+        # a small buffer and handed to rdflib as normal.
+        self._ensure_sha512_db()
+        _BATCH = 50_000  # insert rows per SQLite transaction
         non_sha512_lines = []
+        pending = []
         buf = bytearray()
         _CHUNK = 128 * 1024  # read 128 KB at a time
+
+        def _flush_pending():
+            if pending:
+                self._sha512_db.executemany(
+                    'INSERT OR REPLACE INTO sha512(urn, datastream) VALUES (?,?)',
+                    pending)
+                self._sha512_db.commit()
+                pending.clear()
 
         while True:
             chunk = stream.read(_CHUNK)
@@ -587,8 +634,10 @@ class MemoryDataStore:
                 if stripped.startswith(b'<aff4:sha512:'):
                     m = _SHA512_TRIPLE_RE.match(stripped)
                     if m:
-                        self._sha512_store[m.group(1).decode('ascii')] = \
-                            m.group(2).decode('ascii')
+                        pending.append((m.group(1).decode('ascii'),
+                                        m.group(2).decode('ascii')))
+                        if len(pending) >= _BATCH:
+                            _flush_pending()
                         continue
                 non_sha512_lines.append(line)
 
@@ -596,6 +645,8 @@ class MemoryDataStore:
 
         if buf:  # trailing content with no final newline
             non_sha512_lines.append(bytes(buf))
+
+        _flush_pending()  # commit any remaining sha512 rows
 
         # Parse only the (small) non-sha512 portion with rdflib.
         remaining = b''.join(non_sha512_lines)
@@ -644,9 +695,13 @@ class MemoryDataStore:
             # Don't use the cache for these as they are low cost
             # and they will push aside heavier weight things
             sha512_key = urn.SerializeToString()
-            ds_str = self._sha512_store.get(sha512_key)
-            if ds_str is not None:
-                bytestream_reference_id = rdfvalue.URN(ds_str)
+            row = None
+            if self._sha512_db is not None:
+                row = self._sha512_db.execute(
+                    'SELECT datastream FROM sha512 WHERE urn=?', (sha512_key,)
+                ).fetchone()
+            if row is not None:
+                bytestream_reference_id = rdfvalue.URN(row[0])
             else:
                 bytestream_reference_id = self.GetUnique(
                     lexicon.any, urn, rdfvalue.URN(lexicon.standard.dataStream))
