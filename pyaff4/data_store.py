@@ -55,31 +55,18 @@ except:
 
 _DATASTREAM_PREDICATE = lexicon.AFF4_NAMESPACE + "dataStream"
 
+# Matches a sha512 triple written on a single line, e.g.:
+#   <aff4:sha512:BASE64HASH> aff4:dataStream <aff4://UUID/data[offset:length]> .
+# Handles both prefixed (aff4:dataStream) and full-URI predicate forms.
+# SHA-512 encodes to 86 chars (base64url, no padding) or 88 (with padding).
+import re as _re
+_SHA512_TRIPLE_RE = _re.compile(
+    rb'^<(aff4:sha512:[A-Za-z0-9_=+/\-]{80,92})>\s+'
+    rb'(?:<[^>]*?dataStream[^>]*>|[A-Za-z][A-Za-z0-9_]*:dataStream)\s+'
+    rb'<([^>]+)>\s*\.\s*$'
+)
 
-class _Sha512FilteringGraph(rdflib.Graph):
-    """rdflib.Graph subclass that diverts sha512 triples away from rdflib.
 
-    Hash-based AFF4 images store millions of <aff4:sha512:HASH> <dataStream>
-    <byte-range-URN> triples. Loading these into rdflib creates tens of GB of
-    Python objects (S/P/O indices).  This subclass intercepts such triples
-    during parsing and stores only the dataStream value in a compact plain-dict
-    (sha512_urn_str → datastream_urn_str), which uses roughly 1/4 the memory.
-    All other triples are forwarded to the rdflib graph normally.
-    """
-
-    def __init__(self, sha512_store, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._sha512_store = sha512_store
-
-    def add(self, triple):
-        s, p, o = triple
-        if str(s).startswith("aff4:sha512:"):
-            if str(p) == _DATASTREAM_PREDICATE:
-                self._sha512_store[str(s)] = str(o)
-            # drop all other predicates for sha512 subjects — only dataStream
-            # is accessed at runtime (via AFF4FactoryOpen's sha512 branch)
-            return
-        super().add(triple)
 
 # Coerce rdflib to use
 rdflib.term._toPythonMapping[URIRef(XSD_NAMESPACE + 'hexBinary')] = lambda s: binascii.unhexlify(s)
@@ -569,9 +556,51 @@ class MemoryDataStore:
             self.loadedVolumes.append(zip.urn)
 
     def LoadFromTurtle(self, stream, volume_arn):
-        data = streams.ReadAll(stream)
-        g = _Sha512FilteringGraph(self._sha512_store)
-        g.parse(data=data, format="turtle")
+        # Stream the turtle file line by line instead of loading it all at once.
+        # For hash-based images, information.turtle can be many GB (one line per
+        # unique block-hash).  Calling ReadAll() would try to allocate that many
+        # GB as a single bytes object and OOM before rdflib even starts.
+        #
+        # Lines whose subject is an aff4:sha512 URN are intercepted directly into
+        # self._sha512_store (compact str→str dict).  Everything else is collected
+        # into a small buffer and handed to rdflib as normal.
+        non_sha512_lines = []
+        buf = bytearray()
+        _CHUNK = 128 * 1024  # read 128 KB at a time
+
+        while True:
+            chunk = stream.read(_CHUNK)
+            if not chunk:
+                break
+            buf.extend(chunk)
+
+            # Extract and process every complete line in buf.
+            start = 0
+            while True:
+                nl = buf.find(b'\n', start)
+                if nl == -1:
+                    break
+                line = bytes(buf[start:nl + 1])
+                start = nl + 1
+
+                stripped = line.rstrip(b'\r\n')
+                if stripped.startswith(b'<aff4:sha512:'):
+                    m = _SHA512_TRIPLE_RE.match(stripped)
+                    if m:
+                        self._sha512_store[m.group(1).decode('ascii')] = \
+                            m.group(2).decode('ascii')
+                        continue
+                non_sha512_lines.append(line)
+
+            del buf[:start]  # discard processed bytes
+
+        if buf:  # trailing content with no final newline
+            non_sha512_lines.append(bytes(buf))
+
+        # Parse only the (small) non-sha512 portion with rdflib.
+        remaining = b''.join(non_sha512_lines)
+        g = rdflib.Graph()
+        g.parse(data=remaining, format="turtle")
 
         for urn, attr, value in g:
             urn = utils.SmartUnicode(urn)
