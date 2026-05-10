@@ -17,7 +17,11 @@ import argparse
 import sys, os, errno, shutil, uuid
 import time
 import logging
-import resource
+try:
+    import resource as _resource
+    _HAS_RESOURCE = True
+except ImportError:
+    _HAS_RESOURCE = False
 
 from pyaff4 import container, version
 from pyaff4 import lexicon, logical, escaping
@@ -45,8 +49,10 @@ def _rss_mb():
     except Exception:
         pass
     # Fallback: peak RSS via resource module (Linux: KB, macOS: bytes)
-    ru = resource.getrusage(resource.RUSAGE_SELF)
-    return ru.ru_maxrss / 1024.0
+    if _HAS_RESOURCE:
+        ru = _resource.getrusage(_resource.RUSAGE_SELF)
+        return ru.ru_maxrss / 1024.0
+    return 0.0
 
 
 def _dbg(msg, *args):
