@@ -585,12 +585,11 @@ class MemoryDataStore:
                 stripped = line.rstrip(b'\r\n')
                 if stripped.startswith(b'<aff4:sha512:'):
                     m = _SHA512_TRIPLE_RE.match(stripped)
-                    if m:
-                        if len(self._sha512_store) < _SHA512_DICT_LIMIT:
-                            sha_key = m.group(1).decode('ascii')
-                            byterange = m.group(2).decode('ascii')
-                            self._sha512_store[sha_key] = byterange
-                        continue
+                    if m and len(self._sha512_store) < _SHA512_DICT_LIMIT:
+                        sha_key = m.group(1).decode('ascii')
+                        byterange = m.group(2).decode('ascii')
+                        self._sha512_store[sha_key] = byterange
+                    continue  # always skip sha512 lines — never add to self.store
                 non_sha512_lines.append(line)
 
             del buf[:start]  # discard processed bytes

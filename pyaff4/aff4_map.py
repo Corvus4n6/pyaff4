@@ -536,35 +536,38 @@ class AFF4Map2(AFF4Map):
     def _init_streaming_mode(self, map_urn, map_idx_urn):
         """Set up memory-efficient streaming for large maps.
 
-        Instead of building a Python interval tree (O(N) objects), the raw map
-        bytes are stored in a single compact bytearray and binary-searched.  The
-        idx file is accessed with fixed-length line seeks so it never needs to be
-        fully loaded into memory.
+        The map file is kept on disk and seeked on demand (binary search +
+        sequential fast-path) rather than loaded into a flat bytearray.
+        This keeps peak RAM at O(1) regardless of map file size.
         """
         self._streaming = True
         self._stream_map_urn = map_urn
         self._stream_idx_urn = map_idx_urn
 
-        # Load the raw map bytes – a flat bytearray uses ~28 bytes/entry with no
-        # Python object overhead, vs ~350 bytes/entry for an interval tree.
         read_length = struct.calcsize(Range.format_str)
+
+        # Determine entry count from file size — no full read needed.
         with self.resolver.AFF4FactoryOpen(map_urn, version=self.version) as map_stream:
             map_size = map_stream.Size()
-            self._stream_map_data = map_stream.Read(map_size)
 
-        self._stream_n_entries = len(self._stream_map_data) // read_length
+        self._stream_n_entries = map_size // read_length
 
-        # Determine logical file size from the last map entry.
+        # Determine logical file size from the last map entry (one 28-byte seek).
+        self._stream_size = 0
         if self._stream_n_entries > 0:
             last_start = (self._stream_n_entries - 1) * read_length
-            last_entry = Range.FromSerialized(
-                self._stream_map_data[last_start:last_start + read_length])
-            self._stream_size = last_entry.map_end
-        else:
-            self._stream_size = 0
+            try:
+                with self.resolver.AFF4FactoryOpen(
+                        map_urn, version=self.version) as map_stream:
+                    map_stream.SeekRead(last_start)
+                    last_data = map_stream.Read(read_length)
+                if len(last_data) == read_length:
+                    last_entry = Range.FromSerialized(last_data)
+                    self._stream_size = last_entry.map_end
+            except IOError:
+                pass
 
-        # Determine the fixed line length of the idx file by reading its first line.
-        # sha512 and UUID target URNs both have a fixed length within a given file.
+        # Determine the fixed line length of the idx file.
         self._stream_idx_line_len = None
         try:
             with self.resolver.AFF4FactoryOpen(map_idx_urn, version=self.version) as idx:
@@ -576,8 +579,8 @@ class AFF4Map2(AFF4Map):
             pass
 
         # Bounded LRU cache for recently resolved target URNs.
-        self._stream_idx_cache = {}       # target_id (int) → rdfvalue.URN
-        self._stream_idx_cache_keys = []  # insertion-order list for eviction
+        self._stream_idx_cache = {}
+        self._stream_idx_cache_keys = []
 
         # State for sequential read optimisation.
         self._stream_current_entry = -1
@@ -588,9 +591,12 @@ class AFF4Map2(AFF4Map):
     # ------------------------------------------------------------------
 
     def _get_streaming_range(self, offset):
-        """Return the Range that covers *offset*, using a binary search on the
-        in-memory map bytearray.  For sequential access the previous result is
-        checked first to avoid redundant searching."""
+        """Return the Range that covers *offset*.
+
+        Uses a disk-based binary search so the map file never needs to be
+        loaded into RAM.  A single file-open covers all seeks within a call
+        (one open for the next-entry fast-path, one for binary search).
+        """
         read_length = struct.calcsize(Range.format_str)
 
         # Fast path: current range still covers the requested offset.
@@ -599,30 +605,41 @@ class AFF4Map2(AFF4Map):
                 self._stream_current_range.map_end):
             return self._stream_current_range
 
-        # Try the immediately following entry (common for sequential reads).
-        next_idx = self._stream_current_entry + 1
-        if 0 <= next_idx < self._stream_n_entries:
-            start = next_idx * read_length
-            r = Range.FromSerialized(self._stream_map_data[start:start + read_length])
-            if r.map_offset <= offset < r.map_end:
-                self._stream_current_entry = next_idx
-                self._stream_current_range = r
-                return r
+        try:
+            with self.resolver.AFF4FactoryOpen(
+                    self._stream_map_urn, version=self.version) as map_stream:
 
-        # Fall back to binary search.
-        lo, hi = 0, self._stream_n_entries - 1
-        while lo <= hi:
-            mid = (lo + hi) // 2
-            start = mid * read_length
-            r = Range.FromSerialized(self._stream_map_data[start:start + read_length])
-            if r.map_offset <= offset < r.map_end:
-                self._stream_current_entry = mid
-                self._stream_current_range = r
-                return r
-            elif offset < r.map_offset:
-                hi = mid - 1
-            else:
-                lo = mid + 1
+                # Fast path: try the immediately following entry first.
+                next_idx = self._stream_current_entry + 1
+                if 0 <= next_idx < self._stream_n_entries:
+                    map_stream.SeekRead(next_idx * read_length)
+                    data = map_stream.Read(read_length)
+                    if len(data) == read_length:
+                        r = Range.FromSerialized(data)
+                        if r.map_offset <= offset < r.map_end:
+                            self._stream_current_entry = next_idx
+                            self._stream_current_range = r
+                            return r
+
+                # Binary search — all seeks happen inside this single open.
+                lo, hi = 0, self._stream_n_entries - 1
+                while lo <= hi:
+                    mid = (lo + hi) // 2
+                    map_stream.SeekRead(mid * read_length)
+                    data = map_stream.Read(read_length)
+                    if len(data) < read_length:
+                        break
+                    r = Range.FromSerialized(data)
+                    if r.map_offset <= offset < r.map_end:
+                        self._stream_current_entry = mid
+                        self._stream_current_range = r
+                        return r
+                    elif offset < r.map_offset:
+                        hi = mid - 1
+                    else:
+                        lo = mid + 1
+        except IOError:
+            pass
         return None
 
     def _get_streaming_target(self, target_id):
