@@ -46,6 +46,8 @@ from pyaff4.lexicon import transient_graph, XSD_NAMESPACE, any
 from pyaff4.aff4_map import isByteRangeARN
 
 LOGGER = logging.getLogger("pyaff4")
+DEBUG = False  # set to True by cli.py --debug
+
 HAS_HDT = False
 try:
     import hdt
@@ -567,11 +569,32 @@ class MemoryDataStore:
         buf = bytearray()
         _CHUNK = 128 * 1024  # read 128 KB at a time
 
+        sha512_stored = 0
+        sha512_discarded = 0
+        bytes_read = 0
+        _LOG_INTERVAL = 100 * 1024 * 1024  # log every 100 MB of turtle
+
+        if DEBUG:
+            import sys as _sys
+            try:
+                turtle_size = stream.length if hasattr(stream, 'length') else stream.Size() if hasattr(stream, 'Size') else -1
+            except Exception:
+                turtle_size = -1
+            LOGGER.debug("LoadFromTurtle: turtle size=%s bytes",
+                         ("%d" % turtle_size) if turtle_size >= 0 else "unknown")
+        _next_log = _LOG_INTERVAL
+
         while True:
             chunk = stream.read(_CHUNK)
             if not chunk:
                 break
             buf.extend(chunk)
+            bytes_read += len(chunk)
+
+            if DEBUG and bytes_read >= _next_log:
+                LOGGER.debug("LoadFromTurtle: read %d MB, sha512 stored=%d discarded=%d",
+                             bytes_read // (1024*1024), sha512_stored, sha512_discarded)
+                _next_log += _LOG_INTERVAL
 
             # Extract and process every complete line in buf.
             start = 0
@@ -589,6 +612,9 @@ class MemoryDataStore:
                         sha_key = m.group(1).decode('ascii')
                         byterange = m.group(2).decode('ascii')
                         self._sha512_store[sha_key] = byterange
+                        sha512_stored += 1
+                    else:
+                        sha512_discarded += 1
                     continue  # always skip sha512 lines — never add to self.store
                 non_sha512_lines.append(line)
 
@@ -596,6 +622,14 @@ class MemoryDataStore:
 
         if buf:  # trailing content with no final newline
             non_sha512_lines.append(bytes(buf))
+
+        if DEBUG:
+            LOGGER.debug("LoadFromTurtle: complete — turtle_bytes=%d, "
+                         "sha512_stored=%d, sha512_discarded=%d, "
+                         "non_sha512_lines=%d, non_sha512_bytes=%d",
+                         bytes_read, sha512_stored, sha512_discarded,
+                         len(non_sha512_lines),
+                         sum(len(l) for l in non_sha512_lines))
 
         # Parse only the (small) non-sha512 portion with rdflib.
         remaining = b''.join(non_sha512_lines)

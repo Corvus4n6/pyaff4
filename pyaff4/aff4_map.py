@@ -28,6 +28,7 @@ from pyaff4 import registry
 from pyaff4 import utils
 
 LOGGER = logging.getLogger("pyaff4")
+DEBUG = False  # set to True by cli.py --debug
 
 
 class Range(collections.namedtuple(
@@ -483,7 +484,17 @@ class AFF4Map2(AFF4Map):
             with self.resolver.AFF4FactoryOpen(map_urn, version=self.version) as map_stream:
                 map_size = map_stream.Size()
 
-            if idx_size > self._LARGE_THRESHOLD or map_size > self._LARGE_THRESHOLD:
+            use_streaming = idx_size > self._LARGE_THRESHOLD or map_size > self._LARGE_THRESHOLD
+            if DEBUG:
+                LOGGER.debug("AFF4Map2.LoadFromURN: %s  idx=%d bytes (%.1f MB)  "
+                             "map=%d bytes (%.1f MB)  threshold=%d  mode=%s",
+                             self.urn,
+                             idx_size, idx_size / 1048576.0,
+                             map_size, map_size / 1048576.0,
+                             self._LARGE_THRESHOLD,
+                             "streaming" if use_streaming else "full")
+
+            if use_streaming:
                 self._init_streaming_mode(map_urn, map_idx_urn)
             else:
                 self._load_full_map(map_urn, map_idx_urn)

@@ -17,6 +17,7 @@ import argparse
 import sys, os, errno, shutil, uuid
 import time
 import logging
+import resource
 
 from pyaff4 import container, version
 from pyaff4 import lexicon, logical, escaping
@@ -28,6 +29,30 @@ from pyaff4 import aff4_map
 
 VERBOSE = False
 TERSE = False
+DEBUG = False
+
+_DEBUG_LOGGER = logging.getLogger("pyaff4.debug")
+
+
+def _rss_mb():
+    """Current RSS in MB (reads /proc/self/status on Linux)."""
+    try:
+        with open('/proc/self/status') as f:
+            for line in f:
+                if line.startswith('VmRSS:'):
+                    return int(line.split()[1]) / 1024.0
+    except Exception:
+        pass
+    # Fallback: peak RSS via resource module (Linux: KB, macOS: bytes)
+    ru = resource.getrusage(resource.RUSAGE_SELF)
+    return ru.ru_maxrss / 1024.0
+
+
+def _dbg(msg, *args):
+    if DEBUG:
+        formatted = ("[MEM %6.0f MB] " % _rss_mb()) + (msg % args if args else msg)
+        print(formatted, file=sys.stderr, flush=True)
+
 
 def printImageMetadata(resolver, volume, image):
     print("\t%s <%s>" % (image.name(), trimVolume(volume.urn, image.urn)))
@@ -165,7 +190,9 @@ def trimVolume(volume, image):
 
 
 def verify(file, password):
+    _dbg("verify: opening container %s", file)
     with container.Container.openURNtoContainer(rdfvalue.URN.FromFileName(file)) as volume:
+        _dbg("verify: container open, type=%s", type(volume).__name__)
         if password != None:
             assert not issubclass(volume.__class__, container.PhysicalImageContainer)
             volume.setPassword(password[0])
@@ -176,7 +203,9 @@ def verify(file, password):
             hasher = linear_hasher.LinearHasher2(resolver, LinearVerificationListener())
             for image in childVolume.images():
                 print("\t%s <%s>" % (image.name(), trimVolume(childVolume.urn, image.urn)))
+                _dbg("verify: hashing %s", image.urn)
                 hasher.hash(image)
+                _dbg("verify: done hashing %s", image.urn)
         else:
             printVolumeInfo(file, volume)
             printCaseInfo(volume)
@@ -187,14 +216,18 @@ def verify(file, password):
                 listener = VerificationListener()
                 validator = block_hasher.Validator(listener)
                 print("Verifying AFF4 File: %s" % file)
+                _dbg("verify: starting block_hasher validateContainer")
                 validator.validateContainer(rdfvalue.URN.FromFileName(file))
+                _dbg("verify: validateContainer complete")
                 for result in listener.results:
                     print("\t%s" % result)
             elif type(volume) == container.LogicalImageContainer:
                 hasher = linear_hasher.LinearHasher2(resolver, LinearVerificationListener())
                 for image in volume.images():
                     print ("\t%s <%s>" % (image.name(), trimVolume(volume.urn, image.urn)))
+                    _dbg("verify: hashing %s", image.urn)
                     hasher.hash(image)
+                    _dbg("verify: done hashing %s", image.urn)
 
 def ingestZipfile(container_name, zipfiles, append, check_bytes):
     start = time.time()
@@ -411,6 +444,8 @@ def main(argv=None):
                         help='verify the objects in the container')
     parser.add_argument("--verbose", action="store_true",
                         help='enable verbose output')
+    parser.add_argument("--debug", action="store_true",
+                        help='print diagnostic info (memory, file sizes, code path) to stderr')
     parser.add_argument('-t', "--terse", action="store_true",
                         help='enable terse output')
     parser.add_argument('-l', "--list", action="store_true",
@@ -441,10 +476,20 @@ def main(argv=None):
     parser.add_argument('srcFiles', nargs="*", help='source files and folders to add as logical image')
 
     args = parser.parse_args(argv)
-    global TERSE
-    global VERBOSE
+    global TERSE, VERBOSE, DEBUG
     VERBOSE = args.verbose
     TERSE = args.terse
+    DEBUG = args.debug
+    if DEBUG:
+        # Also enable pyaff4's own debug logger so data_store / aff4_map
+        # messages flow to stderr alongside the _dbg() output.
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
+        logging.getLogger('pyaff4').setLevel(logging.DEBUG)
+        logging.getLogger('pyaff4').addHandler(handler)
+        data_store.DEBUG = True
+        aff4_map.DEBUG = True
+        _dbg("debug mode enabled")
 
     if args.create_logical == True:
         dest = args.aff4container
