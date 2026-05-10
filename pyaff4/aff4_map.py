@@ -463,9 +463,13 @@ class ScudetteAFF4Map(AFF4Map):
 
 
 class AFF4Map2(AFF4Map):
-    # When the idx file exceeds this size, use streaming mode to avoid loading
-    # millions of Python URN objects into memory (e.g. hash-based images).
-    _LARGE_IDX_THRESHOLD = 1_000_000  # ~1 MB idx → ~10 000 sha512 entries
+    # Switch to streaming mode when either the idx OR map file exceeds this
+    # threshold.  Highly-deduplicated images may have a tiny idx (few unique
+    # blocks) but a huge map file (billions of logical-block entries at 28
+    # bytes each).  1 MB catches images with more than ~35 000 map entries
+    # (≈ 17 MB of 512-byte sectors, ≈ 140 MB at 4 KB blocks) without
+    # affecting small test images (maps of a few KB).
+    _LARGE_THRESHOLD = 1_000_000  # 1 MB
 
     def LoadFromURN(self):
         map_urn = self.urn.Append("map")
@@ -476,7 +480,10 @@ class AFF4Map2(AFF4Map):
             with self.resolver.AFF4FactoryOpen(map_idx_urn, version=self.version) as map_idx:
                 idx_size = map_idx.Size()
 
-            if idx_size > self._LARGE_IDX_THRESHOLD:
+            with self.resolver.AFF4FactoryOpen(map_urn, version=self.version) as map_stream:
+                map_size = map_stream.Size()
+
+            if idx_size > self._LARGE_THRESHOLD or map_size > self._LARGE_THRESHOLD:
                 self._init_streaming_mode(map_urn, map_idx_urn)
             else:
                 self._load_full_map(map_urn, map_idx_urn)
