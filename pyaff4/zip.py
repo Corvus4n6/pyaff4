@@ -433,7 +433,7 @@ class DeflateStreamWrapper:
     def _reset(self):
         self._comp_pos = 0               # how far we've consumed the compressed stream
         self._out_pos = 0                # current position in decompressed stream
-        self._decompressor = zlib.decompressobj(zlib.MAX_WBITS)
+        self._decompressor = zlib.decompressobj(-zlib.MAX_WBITS)
         self._buf = b""
         if self._file is not None:
             self._file.seek(self._comp_start)

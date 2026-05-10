@@ -14,6 +14,7 @@ def raw_versions():
 }
 """)
 
+import datetime
 import json
 import os
 import subprocess
@@ -87,8 +88,21 @@ def tag_version_data(version_data, version_path="version.yaml"):
     current_hash = get_current_git_hash()
 
     if current_hash is None:
+        build_ts = None
+        build_hash = None
+        try:
+            from pyaff4 import _build_info
+            build_ts = _build_info.BUILD_TS
+            build_hash = getattr(_build_info, "GIT_HASH", None)
+        except ImportError:
+            pass
+        if build_ts is None:
+            build_ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        meta = build_ts
+        if build_hash:
+            meta = build_ts + "." + build_hash[:7]
         version_data["error"] = "Not in a git repository."
-        version_data["semver"] = version_data["version"] + "+unknown"
+        version_data["semver"] = version_data["version"] + "+" + meta
         version_data["pep440"] = version_data["semver"]
         return version_data
 
