@@ -24,6 +24,7 @@ from pyaff4 import lexicon, logical, escaping
 from pyaff4 import rdfvalue, hashes, utils
 from pyaff4 import block_hasher, data_store, linear_hasher, zip
 from pyaff4 import aff4_map
+from pyaff4 import _version as _pkg_version
 
 #logging.basicConfig(level=logging.DEBUG)
 
@@ -440,6 +441,8 @@ def extract(container_name, imageURNs, destFolder, password):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='AFF4 command line utility.')
+    parser.add_argument("--version", action="store_true",
+                        help='print version and exit')
     parser.add_argument('-v', "--verify", action="store_true",
                         help='verify the objects in the container')
     parser.add_argument("--verbose", action="store_true",
@@ -472,10 +475,16 @@ def main(argv=None):
                         help='ingest a zip file into a hash based image')
     parser.add_argument('-e', "--password", nargs=1, action="store",
                         help='provide a password for encryption. This causes an encrypted container to be used.')
-    parser.add_argument('aff4container', help='the pathname of the AFF4 container')
+    parser.add_argument('aff4container', nargs='?', help='the pathname of the AFF4 container')
     parser.add_argument('srcFiles', nargs="*", help='source files and folders to add as logical image')
 
     args = parser.parse_args(argv)
+
+    if args.version:
+        v = _pkg_version.get_versions()
+        print(v.get("semver", v.get("version", "unknown")))
+        return
+
     global TERSE, VERBOSE, DEBUG
     VERBOSE = args.verbose
     TERSE = args.terse
