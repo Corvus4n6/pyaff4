@@ -10,11 +10,10 @@ def get_versions():
 def raw_versions():
     return json.loads("""
 {
-    "version": "0.33.0"
+    "version": "0.33.1"
 }
 """)
 
-import datetime
 import json
 import os
 import subprocess
@@ -71,38 +70,12 @@ def tag_version_data(version_data, version_path="version.yaml"):
     """Augment version_data with 'semver' and 'pep440' strings.
 
     Format:  MAJOR.MINOR.PATCH+COMMITS.SHORTHASH[.dirty]
-
-    COMMITS   – number of git commits since version.yaml was last edited;
-                0 means HEAD is the version-bump commit itself.
-    SHORTHASH – first 7 characters of the current HEAD commit hash.
-    .dirty    – appended when uncommitted working-tree changes exist.
-
-    Examples:
-        0.33.0+0.c0abf3a          (clean, tagged commit)
-        0.33.0+5.141dfad          (5 commits after the version bump)
-        0.33.0+2.abc1234.dirty    (2 commits ahead, plus local edits)
-
-    The same string is used for both 'semver' and 'pep440' because the '+'
-    local-version separator is valid in PEP 440 as well as Semantic Versioning.
     """
     current_hash = get_current_git_hash()
 
     if current_hash is None:
-        build_ts = None
-        build_hash = None
-        try:
-            from pyaff4 import _build_info
-            build_ts = _build_info.BUILD_TS
-            build_hash = getattr(_build_info, "GIT_HASH", None)
-        except ImportError:
-            pass
-        if build_ts is None:
-            build_ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        meta = build_ts
-        if build_hash:
-            meta = build_ts + "." + build_hash[:7]
         version_data["error"] = "Not in a git repository."
-        version_data["semver"] = version_data["version"] + "+" + meta
+        version_data["semver"] = version_data["version"] + "+unknown"
         version_data["pep440"] = version_data["semver"]
         return version_data
 
