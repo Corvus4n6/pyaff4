@@ -165,7 +165,7 @@ class LinearHasher2:
         if progress is None:
             progress = aff4.EMPTY_PROGRESS
         while True:
-            toRead = 32 * 1024
+            toRead = 1024 * 1024
             data = stream.read(toRead)
             total_read += len(data)
             progress.Report(total_read)

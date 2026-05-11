@@ -57,7 +57,8 @@ def _rss_mb():
 
 def _dbg(msg, *args):
     if DEBUG:
-        formatted = ("[MEM %6.0f MB] " % _rss_mb()) + (msg % args if args else msg)
+        ts = "%.3f" % time.time()
+        formatted = ("[%s] [MEM %6.0f MB] " % (ts, _rss_mb())) + (msg % args if args else msg)
         print(formatted, file=sys.stderr, flush=True)
 
 
@@ -499,7 +500,7 @@ def main(argv=None):
         # Also enable pyaff4's own debug logger so data_store / aff4_map
         # messages flow to stderr alongside the _dbg() output.
         handler = logging.StreamHandler(sys.stderr)
-        handler.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
+        handler.setFormatter(logging.Formatter('[%(created).3f] [%(name)s] %(message)s'))
         logging.getLogger('pyaff4').setLevel(logging.DEBUG)
         logging.getLogger('pyaff4').addHandler(handler)
         data_store.DEBUG = True

@@ -420,7 +420,7 @@ class DeflateStreamWrapper:
     memory-safe because no large buffer is ever held.
     """
 
-    _CHUNK = 65536  # compressed-read chunk size
+    _CHUNK = 524288  # compressed-read chunk size (512 KB)
 
     def __init__(self, file_path, comp_start, comp_size, uncomp_size):
         self._file_path = file_path
@@ -434,7 +434,7 @@ class DeflateStreamWrapper:
         self._comp_pos = 0               # how far we've consumed the compressed stream
         self._out_pos = 0                # current position in decompressed stream
         self._decompressor = zlib.decompressobj(-zlib.MAX_WBITS)
-        self._buf = b""
+        self._buf = bytearray()
         if self._file is not None:
             self._file.seek(self._comp_start)
 
@@ -452,7 +452,7 @@ class DeflateStreamWrapper:
             if not chunk:
                 break
             self._comp_pos += len(chunk)
-            self._buf += self._decompressor.decompress(chunk)
+            self._buf.extend(self._decompressor.decompress(chunk))
 
     def read(self, n=-1):
         if n < 0:
@@ -460,8 +460,8 @@ class DeflateStreamWrapper:
         if n <= 0:
             return b""
         self._fill_buf(n)
-        result = self._buf[:n]
-        self._buf = self._buf[n:]
+        result = bytes(self._buf[:n])
+        del self._buf[:n]
         self._out_pos += len(result)
         return result
 
