@@ -19,6 +19,7 @@ import logging
 import rdflib
 import re
 import os
+import struct
 import tempfile
 import traceback
 import subprocess
@@ -45,6 +46,8 @@ from pyaff4.lexicon import transient_graph, XSD_NAMESPACE, any
 from pyaff4.aff4_map import isByteRangeARN
 
 LOGGER = logging.getLogger("pyaff4")
+DEBUG = False  # set to True by cli.py --debug
+
 HAS_HDT = False
 try:
     import hdt
@@ -52,6 +55,18 @@ try:
     HAS_HDT = True
 except:
     pass
+
+# Matches a sha512 triple and captures the sha512 URN (group 1) and
+# the ByteRangeARN (group 2).
+_SHA512_TRIPLE_RE = re.compile(
+    rb'^<(aff4:sha512:[A-Za-z0-9_=+/\-]{80,92})>\s+'
+    rb'(?:<[^>]*?dataStream[^>]*>|[A-Za-z][A-Za-z0-9_]*:dataStream)\s+'
+    rb'<([^>]+\[[0-9A-Fa-fx]+:[0-9A-Fa-fx]+\])>\s*\.\s*$'
+)
+# Maximum entries kept in _sha512_store (~280 bytes each ≈ 280 MB at limit).
+_SHA512_DICT_LIMIT = 1_000_000
+
+
 
 # Coerce rdflib to use
 rdflib.term._toPythonMapping[URIRef(XSD_NAMESPACE + 'hexBinary')] = lambda s: binascii.unhexlify(s)
@@ -264,6 +279,12 @@ class MemoryDataStore:
             self.ObjectCache = parent.ObjectCache
         self.flush_callbacks = {}
         self.parent = parent
+        # Compact str→str store for sha512 → dataStream ByteRangeARN.
+        # Capped at _SHA512_DICT_LIMIT entries (~280 bytes each) so loading a
+        # large turtle doesn't fill all available RAM.  Images with more unique
+        # blocks than the limit are verified via block_hasher (no dict lookup
+        # needed); LinearHasher2 will fail gracefully for those images.
+        self._sha512_store = {}
 
         if self.lexicon == lexicon.legacy:
             self.streamFactory = stream_factory.PreStdStreamFactory(
@@ -538,9 +559,82 @@ class MemoryDataStore:
             self.loadedVolumes.append(zip.urn)
 
     def LoadFromTurtle(self, stream, volume_arn):
-        data = streams.ReadAll(stream)
+        # Stream the turtle file line by line to avoid loading it all at once.
+        # For hash-based images, information.turtle can be many GB (one sha512
+        # triple per unique block).
+        #
+        # sha512 lines are stored in _sha512_store (capped dict) so that small
+        # images are fully resolvable.  Non-sha512 lines are handed to rdflib.
+        non_sha512_lines = []
+        buf = bytearray()
+        _CHUNK = 128 * 1024  # read 128 KB at a time
+
+        sha512_stored = 0
+        sha512_discarded = 0
+        bytes_read = 0
+        _LOG_INTERVAL = 100 * 1024 * 1024  # log every 100 MB of turtle
+
+        if DEBUG:
+            import sys as _sys
+            try:
+                turtle_size = stream.length if hasattr(stream, 'length') else stream.Size() if hasattr(stream, 'Size') else -1
+            except Exception:
+                turtle_size = -1
+            LOGGER.debug("LoadFromTurtle: turtle size=%s bytes",
+                         ("%d" % turtle_size) if turtle_size >= 0 else "unknown")
+        _next_log = _LOG_INTERVAL
+
+        while True:
+            chunk = stream.read(_CHUNK)
+            if not chunk:
+                break
+            buf.extend(chunk)
+            bytes_read += len(chunk)
+
+            if DEBUG and bytes_read >= _next_log:
+                LOGGER.debug("LoadFromTurtle: read %d MB, sha512 stored=%d discarded=%d",
+                             bytes_read // (1024*1024), sha512_stored, sha512_discarded)
+                _next_log += _LOG_INTERVAL
+
+            # Extract and process every complete line in buf.
+            start = 0
+            while True:
+                nl = buf.find(b'\n', start)
+                if nl == -1:
+                    break
+                line = bytes(buf[start:nl + 1])
+                start = nl + 1
+
+                stripped = line.rstrip(b'\r\n')
+                if stripped.startswith(b'<aff4:sha512:'):
+                    m = _SHA512_TRIPLE_RE.match(stripped)
+                    if m and len(self._sha512_store) < _SHA512_DICT_LIMIT:
+                        sha_key = m.group(1).decode('ascii')
+                        byterange = m.group(2).decode('ascii')
+                        self._sha512_store[sha_key] = byterange
+                        sha512_stored += 1
+                    else:
+                        sha512_discarded += 1
+                    continue  # always skip sha512 lines — never add to self.store
+                non_sha512_lines.append(line)
+
+            del buf[:start]  # discard processed bytes
+
+        if buf:  # trailing content with no final newline
+            non_sha512_lines.append(bytes(buf))
+
+        if DEBUG:
+            LOGGER.debug("LoadFromTurtle: complete — turtle_bytes=%d, "
+                         "sha512_stored=%d, sha512_discarded=%d, "
+                         "non_sha512_lines=%d, non_sha512_bytes=%d",
+                         bytes_read, sha512_stored, sha512_discarded,
+                         len(non_sha512_lines),
+                         sum(len(l) for l in non_sha512_lines))
+
+        # Parse only the (small) non-sha512 portion with rdflib.
+        remaining = b''.join(non_sha512_lines)
         g = rdflib.Graph()
-        g.parse(data=data, format="turtle")
+        g.parse(data=remaining, format="turtle")
 
         for urn, attr, value in g:
             urn = utils.SmartUnicode(urn)
@@ -582,13 +676,17 @@ class MemoryDataStore:
             obj = self.streamFactory.createSymbolic(urn)
         elif urn.SerializeToString().startswith("aff4:sha512"):
             # Don't use the cache for these as they are low cost
-            # and they will push aside heavier weight things
-            #bytestream_reference_id = self.Get(urn, urn, rdfvalue.URN(lexicon.standard.dataStream))
-            #cached_obj = self.ObjectCache.Get(bytestream_reference_id)
-            #if cached_obj:
-            #    cached_obj.Prepare()
-            #    return cached_obj
-            bytestream_reference_id = self.GetUnique(lexicon.any, urn, rdfvalue.URN(lexicon.standard.dataStream))
+            # and they will push aside heavier weight things.
+            sha512_key = urn.SerializeToString()
+            byterange_str = self._sha512_store.get(sha512_key)
+            if byterange_str is not None:
+                return aff4_map.ByteRangeARN(version, resolver=self,
+                                             urn=rdfvalue.URN(byterange_str))
+            # Fall back to RDF store for entries written at image-creation time.
+            bytestream_reference_id = self.GetUnique(
+                lexicon.any, urn, rdfvalue.URN(lexicon.standard.dataStream))
+            if bytestream_reference_id is None:
+                raise IOError("sha512 dataStream not resolvable for %s" % urn)
             return aff4_map.ByteRangeARN(version, resolver=self, urn=bytestream_reference_id)
         elif isByteRangeARN(urn.SerializeToString()):
             return aff4_map.ByteRangeARN(version, resolver=self, urn=urn)

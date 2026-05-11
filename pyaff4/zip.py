@@ -402,6 +402,100 @@ class FileWrapper:
 
             return result
 
+# Segments larger than this threshold are NOT decompressed into a BytesIO
+# buffer when opened for reading. Instead a DeflateStreamWrapper is used,
+# which decompresses on demand so that large zip members (e.g. a raw disk
+# image stored as a single deflate-compressed entry) never load their full
+# content into RAM.
+_LARGE_DEFLATE_THRESHOLD = 64 * 1024 * 1024  # 64 MB
+
+
+class DeflateStreamWrapper:
+    """Sequential streaming decompressor for large ZIP_DEFLATE members.
+
+    Implements the file-like interface expected by FileBackedObject.Read():
+    tell(), seek(pos), read(n).  Forward seeks and seek-to-0 are O(1) or
+    O(distance); backward seeks (other than to 0 after reset) restart
+    decompression from the beginning, which is O(position) but still
+    memory-safe because no large buffer is ever held.
+    """
+
+    _CHUNK = 65536  # compressed-read chunk size
+
+    def __init__(self, file_path, comp_start, comp_size, uncomp_size):
+        self._file_path = file_path
+        self._comp_start = comp_start    # byte offset of compressed data in file
+        self._comp_size = comp_size
+        self._uncomp_size = uncomp_size
+        self._file = None                # opened lazily on first read
+        self._reset()
+
+    def _reset(self):
+        self._comp_pos = 0               # how far we've consumed the compressed stream
+        self._out_pos = 0                # current position in decompressed stream
+        self._decompressor = zlib.decompressobj(-zlib.MAX_WBITS)
+        self._buf = b""
+        if self._file is not None:
+            self._file.seek(self._comp_start)
+
+    def _open_if_needed(self):
+        if self._file is None:
+            self._file = open(self._file_path, "rb")
+            self._file.seek(self._comp_start)
+
+    def _fill_buf(self, want):
+        """Decompress enough compressed data to satisfy want bytes."""
+        self._open_if_needed()
+        while len(self._buf) < want and self._comp_pos < self._comp_size:
+            to_read = min(self._CHUNK, self._comp_size - self._comp_pos)
+            chunk = self._file.read(to_read)
+            if not chunk:
+                break
+            self._comp_pos += len(chunk)
+            self._buf += self._decompressor.decompress(chunk)
+
+    def read(self, n=-1):
+        if n < 0:
+            n = self._uncomp_size - self._out_pos
+        if n <= 0:
+            return b""
+        self._fill_buf(n)
+        result = self._buf[:n]
+        self._buf = self._buf[n:]
+        self._out_pos += len(result)
+        return result
+
+    def seek(self, offset, whence=0):
+        if whence == 0:
+            target = offset
+        elif whence == 1:
+            target = self._out_pos + offset
+        elif whence == 2:
+            target = self._uncomp_size + offset
+        else:
+            raise IOError("Invalid whence value %d" % whence)
+        if target == self._out_pos:
+            return
+        if target < self._out_pos:
+            # Backward seek — must restart decompression from the beginning.
+            self._reset()
+        # Skip forward to target by decompressing and discarding.
+        skip = target - self._out_pos
+        while skip > 0:
+            data = self.read(min(skip, self._CHUNK))
+            if not data:
+                break
+            skip -= len(data)
+
+    def tell(self):
+        return self._out_pos
+
+    def close(self):
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
+
 class WritableFileWrapper(FileWrapper):
     def write(self, buf):
         if len(buf) > self.slice_size:
@@ -487,16 +581,25 @@ class ZipFileSegment(aff4_file.FileBackedObject):
             buffer_size = zip_info.file_size
             self.length = zip_info.file_size
             if file_header.compression_method == ZIP_DEFLATE:
-                # We write the entire file in a memory buffer if we need to
-                # deflate it.
                 self.compression_method = ZIP_DEFLATE
-                c_buffer = backing_store.Read(zip_info.compress_size)
-                decomp_buffer = DecompressBuffer(c_buffer)
-                if len(decomp_buffer) != buffer_size:
-                    LOGGER.info("Unable to decompress file %s", self.urn)
-                    raise IOError()
-
-                self.fd = io.BytesIO(decomp_buffer)
+                if buffer_size > _LARGE_DEFLATE_THRESHOLD and not backing_store.properties.writable:
+                    # Large read-only deflate segment: stream-decompress on demand
+                    # so the entire content is never held in RAM.
+                    comp_start = backing_store.TellRead()
+                    file_path = str(rdfvalue.URN(backing_store_urn).ToFilename())
+                    LOGGER.debug("ZipFileSegment: large deflate segment %s "
+                                 "(%d MB) — using streaming decompressor",
+                                 self.urn, buffer_size >> 20)
+                    self.fd = DeflateStreamWrapper(
+                        file_path, comp_start, zip_info.compress_size, buffer_size)
+                else:
+                    # Small segment or writable: load into BytesIO (existing behaviour).
+                    c_buffer = backing_store.Read(zip_info.compress_size)
+                    decomp_buffer = DecompressBuffer(c_buffer)
+                    if len(decomp_buffer) != buffer_size:
+                        LOGGER.info("Unable to decompress file %s", self.urn)
+                        raise IOError()
+                    self.fd = io.BytesIO(decomp_buffer)
 
             elif file_header.compression_method == ZIP_STORED:
                 # Otherwise we map a slice into it.
@@ -517,6 +620,10 @@ class ZipFileSegment(aff4_file.FileBackedObject):
             owner.StreamAddMember(
                 self.urn, stream, compression_method=self.compression_method,
                 progress=progress)
+
+    def Close(self):
+        if hasattr(self, "fd") and isinstance(self.fd, DeflateStreamWrapper):
+            self.fd.close()
 
     def FlushAndClose(self):
         self.Flush()

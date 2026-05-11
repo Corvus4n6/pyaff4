@@ -18,9 +18,9 @@ import os
 import subprocess
 
 try:
-    # We are looking for the git repo which contains this file.
+    # Locate the git repo that contains this file.
     MY_DIR = os.path.dirname(os.path.abspath(__file__))
-except:
+except Exception:
     MY_DIR = None
 
 def is_tree_dirty():
@@ -42,21 +42,19 @@ def get_version_file_path(version_file="version.yaml"):
         return None
 
 def number_of_commit_since(version_file="version.yaml"):
-    """Returns the number of commits since version.yaml was changed."""
+    """Number of commits on HEAD since version.yaml was last changed (0 = exact tag)."""
     try:
-        last_commit_to_touch_version_file = subprocess.check_output(
+        last_commit = subprocess.check_output(
             ["git", "log", "--no-merges", "-n", "1", "--pretty=format:%H",
              version_file], cwd=MY_DIR, stderr=subprocess.PIPE,
         ).strip()
-
         all_commits = subprocess.check_output(
             ["git", "log", "--no-merges", "-n", "1000", "--pretty=format:%H"],
             stderr=subprocess.PIPE, cwd=MY_DIR,
         ).splitlines()
-        return all_commits.index(last_commit_to_touch_version_file)
+        return all_commits.index(last_commit)
     except (OSError, subprocess.CalledProcessError, ValueError):
         return None
-
 
 def get_current_git_hash():
     try:
@@ -68,32 +66,38 @@ def get_current_git_hash():
         return None
 
 def tag_version_data(version_data, version_path="version.yaml"):
+    """Augment version_data with \'semver\' and \'pep440\' strings.
+
+    Format:  MAJOR.MINOR.PATCH+COMMITS.SHORTHASH[.dirty]
+    """
     current_hash = get_current_git_hash()
-    # Not in a git repository.
+
     if current_hash is None:
         version_data["error"] = "Not in a git repository."
+        version_data["semver"] = version_data["version"] + "+unknown"
+        version_data["pep440"] = version_data["semver"]
+        return version_data
 
-    else:
-        version_data["revisionid"] = current_hash
-        version_data["dirty"] = is_tree_dirty()
-        version_data["dev"] = number_of_commit_since(
-            get_version_file_path(version_path))
+    if isinstance(current_hash, bytes):
+        current_hash = current_hash.decode("utf-8")
 
-    # Format the version according to pep440:
-    pep440 = version_data["version"]
-    if int(version_data.get("post", 0)) > 0:
-        pep440 += ".post" + version_data["post"]
+    short_hash = current_hash[:7]
+    dirty = is_tree_dirty()
+    commits = number_of_commit_since(get_version_file_path(version_path))
 
-    elif int(version_data.get("rc", 0)) > 0:
-        pep440 += ".rc" + version_data["rc"]
+    version_data["revisionid"] = current_hash
+    version_data["dirty"] = dirty
+    version_data["dev"] = commits  # kept for backward compatibility
 
-    if version_data.get("dev", 0):
-        # A Development release comes _before_ the main release.
-        last = version_data["version"].rsplit(".", 1)
-        version_data["version"] = "%s.%s" % (last[0], int(last[1]) + 1)
-        pep440 = version_data["version"] + ".dev" + str(version_data["dev"])
+    meta_parts = []
+    if commits is not None:
+        meta_parts.append(str(commits))
+    meta_parts.append(short_hash)
+    if dirty:
+        meta_parts.append("dirty")
 
-    version_data["pep440"] = pep440
+    version_data["semver"] = version_data["version"] + "+" + ".".join(meta_parts)
+    version_data["pep440"] = version_data["semver"]
 
     return version_data
 '''
@@ -108,11 +112,9 @@ tag_version_data = ENV["tag_version_data"]
 
 _VERSION_TEMPLATE = """
 # Machine Generated - do not edit!
-
-# This file is produced when the main "version.py update" command is run. That
-# command copies this file to all sub-packages which contain
-# setup.py. Configuration is maintain in version.yaml at the project's top
-# level.
+#
+# Update by running:  python version.py update --version MAJOR.MINOR.PATCH
+# from the project root.  Configuration lives in version.yaml.
 
 def get_versions():
     return tag_version_data(raw_versions(), \"\"\"%s\"\"\")

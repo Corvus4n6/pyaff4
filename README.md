@@ -25,6 +25,7 @@ AFF4 Reference Images github project at https://github.com/aff4/ReferenceImages
 5. Reading & writing logical images (*new*) .
 6. Reading & writing deduplicated logical images (*new*).
 7. Encrypted AFF4 logical volumes (*new*).
+8. Verification of AFF4 images containing large objects without exhausting memory.
 
 ## What is not yet supported:
 

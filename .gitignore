@@ -6,3 +6,4 @@ dist/
 *~
 /venv/
 /venv2/
+pyaff4/_build_info.py

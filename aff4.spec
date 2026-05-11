@@ -10,9 +10,29 @@
 
 import sys
 import os
+import datetime
+import subprocess
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
+
+# Bake build timestamp and git hash into pyaff4/_build_info.py so that
+# the frozen binary can report a meaningful version instead of "+unknown".
+_build_ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+try:
+    _git_hash = subprocess.check_output(
+        ["git", "log", "--no-merges", "-n", "1", "--pretty=format:%H"],
+        stderr=subprocess.DEVNULL,
+    ).decode("utf-8").strip()
+except Exception:
+    _git_hash = None
+
+_spec_dir = os.path.dirname(os.path.abspath(SPEC))
+_build_info_path = os.path.join(_spec_dir, "pyaff4", "_build_info.py")
+with open(_build_info_path, "w") as _f:
+    _f.write("# Auto-generated at PyInstaller build time by aff4.spec — do not edit\n")
+    _f.write("BUILD_TS = %r\n" % _build_ts)
+    _f.write("GIT_HASH = %r\n" % _git_hash)
 
 # Collect all data files and submodules for packages that use dynamic imports
 rdflib_datas, rdflib_binaries, rdflib_hiddenimports = collect_all('rdflib')
