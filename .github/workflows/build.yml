@@ -70,7 +70,11 @@ jobs:
             python:3.11-slim-bullseye \
             bash -c "
               set -e
-              apt-get update -qq && apt-get install -y --no-install-recommends binutils g++
+              for i in 1 2 3; do
+                apt-get update -qq && \
+                apt-get install -y --no-install-recommends binutils g++ && \
+                break || { echo \"apt attempt \$i failed, retrying in 15s...\"; sleep 15; }
+              done
               pip install -r requirements.txt pyinstaller
               pyinstaller aff4.spec
             "
