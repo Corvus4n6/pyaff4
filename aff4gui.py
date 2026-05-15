@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 import sys
 
+
 def main():
+    # Handle --version before touching Qt so it works headlessly in CI.
+    if "--version" in sys.argv:
+        from pyaff4 import _version as _pkg_version
+        v = _pkg_version.get_versions()
+        print(v.get("semver", v.get("version", "unknown")))
+        return
+
     try:
         from PySide6.QtWidgets import QApplication
     except ImportError:
@@ -15,6 +23,7 @@ def main():
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
