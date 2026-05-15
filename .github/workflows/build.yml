@@ -21,24 +21,32 @@ jobs:
           - os: ubuntu-22.04
             artifact_name: aff4-linux-x86_64
             binary_path: dist/aff4
+            gui_binary_path: dist/aff4-gui
+            gui_artifact_name: aff4-gui-linux-x86_64
             use_docker: true
 
           # ── Linux ARM64 ───────────────────────────────────────────────────
           - os: ubuntu-22.04-arm
             artifact_name: aff4-linux-arm64
             binary_path: dist/aff4
+            gui_binary_path: dist/aff4-gui
+            gui_artifact_name: aff4-gui-linux-arm64
             use_docker: true
 
           # ── Windows x86_64 ────────────────────────────────────────────────
           - os: windows-latest
             artifact_name: aff4-windows-x86_64
             binary_path: dist/aff4.exe
+            gui_binary_path: dist/aff4-gui.exe
+            gui_artifact_name: aff4-gui-windows-x86_64
             use_docker: false
 
           # ── macOS ARM64 (Apple Silicon; runs via Rosetta 2 on Intel) ─────
           - os: macos-14
             artifact_name: aff4-macos-arm64
             binary_path: dist/aff4
+            gui_binary_path: dist/aff4-gui
+            gui_artifact_name: aff4-gui-macos-arm64
             use_docker: false
 
     steps:
@@ -55,8 +63,13 @@ jobs:
       - name: Install deps and build
         if: ${{ !matrix.use_docker }}
         run: |
-          pip install -r requirements.txt pyinstaller
+          pip install -r requirements.txt pyinstaller PySide6
           pyinstaller aff4.spec
+
+      - name: Build GUI binary
+        if: ${{ !matrix.use_docker }}
+        run: |
+          pyinstaller aff4-gui.spec
 
       # ── Linux (Debian 11 / glibc 2.31, native arch) ───────────────────────
       # python:3.11-slim-bullseye is a multi-arch image; Docker pulls the
@@ -72,15 +85,21 @@ jobs:
               set -e
               for i in 1 2 3; do
                 apt-get update -qq && \
-                apt-get install -y --no-install-recommends binutils g++ && \
+                apt-get install -y --no-install-recommends binutils g++ libgl1 libglib2.0-0 && \
                 break || { echo \"apt attempt \$i failed, retrying in 15s...\"; sleep 15; }
               done
-              pip install -r requirements.txt pyinstaller
+              pip install -r requirements.txt pyinstaller PySide6
               pyinstaller aff4.spec
+              pyinstaller aff4-gui.spec
             "
 
       - name: Smoke test
         run: ${{ matrix.binary_path }} --help
+
+      - name: Smoke test GUI binary
+        run: ${{ matrix.gui_binary_path }} --version
+        env:
+          QT_QPA_PLATFORM: offscreen
 
       - name: Install test dependencies
         if: ${{ !matrix.use_docker }}
@@ -98,5 +117,13 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.binary_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.gui_artifact_name }}
+          path: ${{ matrix.gui_binary_path }}
           if-no-files-found: error
           retention-days: 30
