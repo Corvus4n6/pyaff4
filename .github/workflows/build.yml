@@ -94,7 +94,7 @@ jobs:
                   libfreetype6 \
                   libgl1 \
                   libglib2.0-0 \
-                  libssl3 \
+                  libssl1.1 \
                   libxkbcommon0 && \
                 break || { echo \"apt attempt \$i failed, retrying in 15s...\"; sleep 15; }
               done
