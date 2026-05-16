@@ -85,7 +85,17 @@ jobs:
               set -e
               for i in 1 2 3; do
                 apt-get update -qq && \
-                apt-get install -y --no-install-recommends binutils g++ libgl1 libglib2.0-0 && \
+                apt-get install -y --no-install-recommends \
+                  binutils g++ \
+                  libbrotli1 \
+                  libdbus-1-3 \
+                  libegl1 \
+                  libfontconfig1 \
+                  libfreetype6 \
+                  libgl1 \
+                  libglib2.0-0 \
+                  libssl3 \
+                  libxkbcommon0 && \
                 break || { echo \"apt attempt \$i failed, retrying in 15s...\"; sleep 15; }
               done
               pip install -r requirements.txt pyinstaller PySide6
