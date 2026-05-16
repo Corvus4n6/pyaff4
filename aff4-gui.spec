@@ -155,14 +155,20 @@ a = Analysis(
     noarchive=False,
 )
 
-# libxkbcommon-x11 is collected from the build container by collect_all('PySide6').
-# It is tightly coupled to the system's X11/xcb ABI; running the bundled version
-# on a different distro causes a segfault during Qt startup. Strip it here so
-# Qt loads it from the host system instead (it is present on any X11 desktop).
-_xcb_exclude = {'libxkbcommon-x11.so.0'}
+# X11/xcb libraries are tightly ABI-coupled to each other and to the running
+# X server. Bundling any of them from the build container causes version
+# mismatches on other distros, leading to segfaults inside libxkbcommon-x11
+# (confirmed: same crash with both bundled and system libxkbcommon-x11 when
+# the bundled libxcb.so.1 / libxcb-xkb.so.1 are still present).
+# Strip the entire X11/xcb family so Qt loads them from the host system,
+# where they are guaranteed to match each other and the running X server.
+# Any Linux desktop will have these installed.
+import re as _re
+_x11_pat = _re.compile(
+    r'^lib(xcb|xcb-|xkbcommon|X11|Xext|Xau|Xdmcp|xshmfence|Xtst)')
 a.binaries = TOC([
     (name, path, typ) for name, path, typ in a.binaries
-    if name not in _xcb_exclude
+    if not _x11_pat.match(name)
 ])
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
