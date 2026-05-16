@@ -155,6 +155,16 @@ a = Analysis(
     noarchive=False,
 )
 
+# libxkbcommon-x11 is collected from the build container by collect_all('PySide6').
+# It is tightly coupled to the system's X11/xcb ABI; running the bundled version
+# on a different distro causes a segfault during Qt startup. Strip it here so
+# Qt loads it from the host system instead (it is present on any X11 desktop).
+_xcb_exclude = {'libxkbcommon-x11.so.0'}
+a.binaries = TOC([
+    (name, path, typ) for name, path, typ in a.binaries
+    if name not in _xcb_exclude
+])
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
