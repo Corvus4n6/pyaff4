@@ -55,7 +55,7 @@ class VerifyWorker(QThread):
         for i, image in enumerate(images):
             if self._cancelled:
                 break
-            name = image.name()
+            name = str(image.name())
             self.image_started.emit(name)
             self.status.emit("Hashing %s..." % name)
             self.progress.emit(0)

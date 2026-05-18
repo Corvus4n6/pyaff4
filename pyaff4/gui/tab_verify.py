@@ -50,6 +50,12 @@ class VerifyTab(QWidget):
         # Progress
         prog_group = QGroupBox("Progress")
         prog_layout = QVBoxLayout(prog_group)
+        image_row = QHBoxLayout()
+        image_row.addWidget(QLabel("Image:"))
+        self.current_image_label = QLabel("-")
+        self.current_image_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        image_row.addWidget(self.current_image_label, 1)
+        prog_layout.addLayout(image_row)
         self.status_label = QLabel("Ready")
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
@@ -99,7 +105,8 @@ class VerifyTab(QWidget):
 
         self._worker = VerifyWorker(path)
         self._worker.progress.connect(self.progress_bar.setValue)
-        self._worker.image_started.connect(lambda name: self.status_label.setText("Hashing: " + name))
+        self._worker.image_started.connect(self.current_image_label.setText)
+        self._worker.image_started.connect(lambda name: self.status_label.setText("Hashing..."))
         self._worker.hash_result.connect(self._on_result)
         self._worker.status.connect(self.status_label.setText)
         self._worker.error.connect(self._on_error)
@@ -126,6 +133,7 @@ class VerifyTab(QWidget):
         self.status_label.setText("Error: " + msg)
 
     def _on_finished(self):
+        self.current_image_label.setText("-")
         self.status_label.setText("Verification complete.")
         self.progress_bar.setValue(100)
         self.start_btn.setEnabled(True)
