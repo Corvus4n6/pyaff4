@@ -190,7 +190,7 @@ class CreateVolumeWorker(QThread):
                          lexicon.AFF4_STREAM_WRITE_MODE, rdfvalue.XSDString("truncate"))
 
             self.status.emit("Creating container...")
-            with container.Container.createURN(resolver, container_urn) as volume:
+            with container.Container.createURN(resolver, container_urn, zip_based=True) as volume:
                 # Write case metadata
                 if self.case_name or self.examiner or self.description:
                     self._write_case_metadata(resolver, volume)
