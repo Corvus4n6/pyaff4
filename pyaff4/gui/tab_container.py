@@ -36,8 +36,11 @@ class ContainerTab(QWidget):
         vol_form = QFormLayout(vol_group)
         self.lbl_urn = QLabel("-")
         self.lbl_urn.setWordWrap(True)
+        self.lbl_urn.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.lbl_version = QLabel("-")
+        self.lbl_version.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.lbl_type = QLabel("-")
+        self.lbl_type.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         vol_form.addRow("URN:", self.lbl_urn)
         vol_form.addRow("Version:", self.lbl_version)
         vol_form.addRow("Type:", self.lbl_type)
@@ -47,9 +50,12 @@ class ContainerTab(QWidget):
         case_group = QGroupBox("Case Details")
         case_form = QFormLayout(case_group)
         self.lbl_case_name = QLabel("-")
+        self.lbl_case_name.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.lbl_examiner = QLabel("-")
+        self.lbl_examiner.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.lbl_description = QLabel("-")
         self.lbl_description.setWordWrap(True)
+        self.lbl_description.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         case_form.addRow("Case Name:", self.lbl_case_name)
         case_form.addRow("Examiner:", self.lbl_examiner)
         case_form.addRow("Description:", self.lbl_description)
@@ -97,7 +103,7 @@ class ContainerTab(QWidget):
                 for image in volume.images():
                     row = self.image_table.rowCount()
                     self.image_table.insertRow(row)
-                    self.image_table.setItem(row, 0, QTableWidgetItem(image.name()))
+                    self.image_table.setItem(row, 0, QTableWidgetItem(str(image.name())))
                     try:
                         with volume.resolver.AFF4FactoryOpen(image.urn, version=volume.version) as s:
                             size = s.Size()
