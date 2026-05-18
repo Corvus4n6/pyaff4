@@ -30,8 +30,8 @@ class MainWindow(QMainWindow):
 
         tabs.addTab(self.create_tab, "Create Volume")
         tabs.addTab(self.verify_tab, "Verify Volume")
-        tabs.addTab(self.container_tab, "View Volume")
         tabs.addTab(self.add_tab, "Add to Volume")
+        tabs.addTab(self.container_tab, "View Volume")
 
         # When a container is opened in the Container tab, pre-fill Verify
         self.container_tab.container_opened.connect(self.verify_tab.set_container_path)
