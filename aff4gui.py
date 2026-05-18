@@ -18,7 +18,7 @@ def main():
 
     from pyaff4.gui.main_window import MainWindow
     app = QApplication(sys.argv)
-    app.setApplicationName("AFF4 Forensic Tool")
+    app.setApplicationName("AFF4 Imager")
     app.setOrganizationName("pyaff4")
     window = MainWindow()
     window.show()

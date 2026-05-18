@@ -15,7 +15,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         v = _pkg_version.get_versions()
         version_str = v.get("semver", v.get("version", "unknown"))
-        self.setWindowTitle("AFF4 Forensic Tool  v%s" % version_str)
+        self.setWindowTitle("AFF4 Imager v%s" % version_str)
         self.resize(900, 700)
         self._setup_ui()
 
@@ -28,10 +28,10 @@ class MainWindow(QMainWindow):
         self.add_tab = AddImagesTab()
         self.create_tab = CreateVolumeTab()
 
-        tabs.addTab(self.container_tab, "Container")
-        tabs.addTab(self.verify_tab, "Verify")
-        tabs.addTab(self.add_tab, "Add Images")
         tabs.addTab(self.create_tab, "Create Volume")
+        tabs.addTab(self.verify_tab, "Verify Volume")
+        tabs.addTab(self.container_tab, "View Volume")
+        tabs.addTab(self.add_tab, "Add to Volume")
 
         # When a container is opened in the Container tab, pre-fill Verify
         self.container_tab.container_opened.connect(self.verify_tab.set_container_path)
