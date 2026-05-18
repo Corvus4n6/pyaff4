@@ -216,18 +216,19 @@ class CreateVolumeWorker(QThread):
             self.finished.emit()
 
     def _write_case_metadata(self, resolver, volume):
-        # Write case metadata as turtle into the container
-        # Use the same RDF predicates the reader expects
         case_urn = volume.urn.Append("CaseDetails")
+        resolver.Add(volume.urn, case_urn,
+                     rdfvalue.URN(lexicon.AFF4_TYPE),
+                     rdfvalue.URN(volume.lexicon.of("CaseDetails")))
         if self.case_name:
-            resolver.Set(lexicon.transient_graph, case_urn,
-                         rdfvalue.URN(lexicon.standard.caseName if hasattr(lexicon.standard, 'caseName') else "http://aff4.org/Schema#caseName"),
+            resolver.Set(volume.urn, case_urn,
+                         rdfvalue.URN(volume.lexicon.of("caseName")),
                          rdfvalue.XSDString(self.case_name))
         if self.examiner:
-            resolver.Set(lexicon.transient_graph, case_urn,
-                         rdfvalue.URN(lexicon.standard.examiner if hasattr(lexicon.standard, 'examiner') else "http://aff4.org/Schema#examiner"),
+            resolver.Set(volume.urn, case_urn,
+                         rdfvalue.URN(volume.lexicon.of("examiner")),
                          rdfvalue.XSDString(self.examiner))
         if self.description:
-            resolver.Set(lexicon.transient_graph, case_urn,
-                         rdfvalue.URN(lexicon.standard.caseDescription if hasattr(lexicon.standard, 'caseDescription') else "http://aff4.org/Schema#caseDescription"),
+            resolver.Set(volume.urn, case_urn,
+                         rdfvalue.URN(volume.lexicon.of("caseDescription")),
                          rdfvalue.XSDString(self.description))

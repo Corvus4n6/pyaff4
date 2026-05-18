@@ -5,6 +5,5 @@ class RDFObject:
         self.lexicon = lexicon
 
     def __getattr__(self, item):
-        #print self.resolver.DumpToTurtle()
-        val = self.resolver.Get(self.urn, self.lexicon.of(item))
+        val = self.resolver.GetUnique(None, self.urn, self.lexicon.of(item))
         return val

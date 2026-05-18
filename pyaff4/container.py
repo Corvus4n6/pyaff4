@@ -82,7 +82,7 @@ class Container:
 
     def getMetadata(self, klass):
         try:
-            m = next(self.resolver.QueryPredicateObject(lexicon.AFF4_TYPE, self.lexicon.of(klass)))
+            m = next(self.resolver.QueryPredicateObject(self.urn, lexicon.AFF4_TYPE, self.lexicon.of(klass)))
             return RDFObject(m, self.resolver, self.lexicon)
         except:
             return None
