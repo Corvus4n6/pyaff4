@@ -26,28 +26,28 @@ jobs:
             use_docker: true
 
           # ── Linux ARM64 ───────────────────────────────────────────────────
-          - os: ubuntu-22.04-arm
-            artifact_name: aff4-linux-arm64
-            binary_path: dist/aff4
-            gui_binary_path: dist/aff4-gui
-            gui_artifact_name: aff4-gui-linux-arm64
-            use_docker: true
+          #- os: ubuntu-22.04-arm
+          #  artifact_name: aff4-linux-arm64
+          #  binary_path: dist/aff4
+          #  gui_binary_path: dist/aff4-gui
+          #  gui_artifact_name: aff4-gui-linux-arm64
+          #  use_docker: true
 
           # ── Windows x86_64 ────────────────────────────────────────────────
-          - os: windows-latest
-            artifact_name: aff4-windows-x86_64
-            binary_path: dist/aff4.exe
-            gui_binary_path: dist/aff4-gui.exe
-            gui_artifact_name: aff4-gui-windows-x86_64
-            use_docker: false
+          #- os: windows-latest
+          #  artifact_name: aff4-windows-x86_64
+          #  binary_path: dist/aff4.exe
+          #  gui_binary_path: dist/aff4-gui.exe
+          #  gui_artifact_name: aff4-gui-windows-x86_64
+          #  use_docker: false
 
           # ── macOS ARM64 (Apple Silicon; runs via Rosetta 2 on Intel) ─────
-          - os: macos-14
-            artifact_name: aff4-macos-arm64
-            binary_path: dist/aff4
-            gui_binary_path: dist/aff4-gui
-            gui_artifact_name: aff4-gui-macos-arm64
-            use_docker: false
+          #- os: macos-14
+          #  artifact_name: aff4-macos-arm64
+          #  binary_path: dist/aff4
+          #  gui_binary_path: dist/aff4-gui
+          #  gui_artifact_name: aff4-gui-macos-arm64
+          #  use_docker: false
 
     steps:
       - uses: actions/checkout@v4
