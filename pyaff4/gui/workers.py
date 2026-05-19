@@ -2,7 +2,7 @@ import os
 import time
 from PySide6.QtCore import QThread, Signal, QObject
 
-from pyaff4 import container, rdfvalue, data_store, lexicon, linear_hasher, hashes, aff4, block_hasher
+from pyaff4 import container, rdfvalue, data_store, lexicon, linear_hasher, hashes, aff4, block_hasher, logical
 
 
 class _Progress:
@@ -82,25 +82,31 @@ class VerifyWorker(QThread):
                 self.error.emit("Error hashing %s: %s" % (name, str(e)))
 
     def _verify_physical(self, volume):
-        self.status.emit("Verifying physical image block hashes...")
+        self.status.emit("Verifying physical image...")
         self.progress.emit(0)
 
         worker_self = self
+        block_failures = [0]
 
         class Listener:
-            def __init__(self):
-                self.results = []
             def onValidBlockHash(self, a): pass
             def onInvalidBlockHash(self, a, b, imageStreamURI, offset):
-                self.results.append(("Block hash", "", "invalid", "invalid", False))
+                block_failures[0] += 1
             def onValidHash(self, typ, hash_val, urn):
-                worker_self.hash_result.emit(str(urn), typ, hash_val, hash_val, True)
+                worker_self.hash_result.emit(str(urn), str(typ), str(hash_val), str(hash_val), True)
             def onInvalidHash(self, typ, a, b, urn):
-                worker_self.hash_result.emit(str(urn), typ, a, b, False)
+                worker_self.hash_result.emit(str(urn), str(typ), str(a), str(b), False)
 
-        listener = Listener()
-        validator = block_hasher.Validator(listener)
+        validator = block_hasher.Validator(Listener())
         validator.validateContainer(rdfvalue.URN.FromFileName(self.file_path))
+
+        # Summarise block-level hash results as a single row
+        container_str = str(rdfvalue.URN.FromFileName(self.file_path))
+        if block_failures[0] == 0:
+            self.hash_result.emit(container_str, "BlockHashes", "PASS", "PASS", True)
+        else:
+            fail_msg = "%d block(s) failed" % block_failures[0]
+            self.hash_result.emit(container_str, "BlockHashes", fail_msg, fail_msg, False)
 
 
 class AddImagesWorker(QThread):
@@ -143,12 +149,15 @@ class AddImagesWorker(QThread):
                     fname = os.path.basename(fpath)
                     self.status.emit("Adding %s..." % fname)
                     size = os.path.getsize(fpath)
+                    fsmeta = logical.FSMetadata.create(fpath)
                     with open(fpath, "rb") as f:
                         hasher = linear_hasher.StreamHasher(f, [lexicon.HASH_SHA1, lexicon.HASH_MD5])
                         urn = volume.writeLogicalStream(fname, hasher, size)
                         for h in hasher.hashes:
                             hh = hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
                             volume.resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
+                    fsmeta.urn = urn
+                    fsmeta.store(volume.resolver)
                     self.progress.emit(int((i + 1) * 100 / total))
         except Exception as e:
             self.error.emit(str(e))
@@ -207,12 +216,15 @@ class CreateVolumeWorker(QThread):
                     fname = os.path.basename(fpath)
                     self.status.emit("Adding %s..." % fname)
                     size = os.path.getsize(fpath)
+                    fsmeta = logical.FSMetadata.create(fpath)
                     with open(fpath, "rb") as f:
                         hasher = linear_hasher.StreamHasher(f, [lexicon.HASH_SHA1, lexicon.HASH_MD5])
                         urn = volume.writeLogicalStream(fname, hasher, size)
                         for h in hasher.hashes:
                             hh = hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
                             resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
+                    fsmeta.urn = urn
+                    fsmeta.store(resolver)
                     pct = int((i + 1) * 100 / max(total, 1))
                     self.progress.emit(pct)
 
