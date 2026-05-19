@@ -100,25 +100,46 @@ class ContainerTab(QWidget):
                     self.lbl_description.setText(str(case.caseDescription or "-"))
 
                 self.image_table.setRowCount(0)
-                for image in volume.images():
-                    row = self.image_table.rowCount()
-                    self.image_table.insertRow(row)
-                    self.image_table.setItem(row, 0, QTableWidgetItem(str(image.name())))
-                    try:
-                        sz = volume.resolver.GetUnique(volume.urn, image.urn, volume.lexicon.streamSize)
-                        if sz:
-                            size_str = self._fmt_size(int(sz))
-                        else:
-                            with volume.resolver.AFF4FactoryOpen(image.urn, version=volume.version) as s:
-                                size_str = self._fmt_size(s.Size())
-                    except Exception:
-                        size_str = "?"
-                    self.image_table.setItem(row, 1, QTableWidgetItem(size_str))
-                    self.image_table.setItem(row, 2, QTableWidgetItem(str(image.urn)))
+                if isinstance(volume, container.PhysicalImageContainer):
+                    self._populate_physical(volume)
+                else:
+                    self._populate_logical(volume)
 
             self.container_opened.emit(path)
         except Exception as e:
             self.lbl_urn.setText("Error: %s" % str(e))
+
+    def _populate_physical(self, volume):
+        row = self.image_table.rowCount()
+        self.image_table.insertRow(row)
+        disk = volume.getMetadata("DiskImage")
+        try:
+            if disk and disk.size is not None:
+                size_str = self._fmt_size(int(disk.size))
+            else:
+                size_str = self._fmt_size(volume.image.dataStream.Size())
+        except Exception:
+            size_str = "?"
+        self.image_table.setItem(row, 0, QTableWidgetItem("Disk Image"))
+        self.image_table.setItem(row, 1, QTableWidgetItem(size_str))
+        self.image_table.setItem(row, 2, QTableWidgetItem(str(volume.image.urn)))
+
+    def _populate_logical(self, volume):
+        for image in volume.images():
+            row = self.image_table.rowCount()
+            self.image_table.insertRow(row)
+            self.image_table.setItem(row, 0, QTableWidgetItem(str(image.name())))
+            try:
+                sz = volume.resolver.GetUnique(volume.urn, image.urn, volume.lexicon.streamSize)
+                if sz:
+                    size_str = self._fmt_size(int(sz))
+                else:
+                    with volume.resolver.AFF4FactoryOpen(image.urn, version=volume.version) as s:
+                        size_str = self._fmt_size(s.Size())
+            except Exception:
+                size_str = "?"
+            self.image_table.setItem(row, 1, QTableWidgetItem(size_str))
+            self.image_table.setItem(row, 2, QTableWidgetItem(str(image.urn)))
 
     def _clear(self):
         for lbl in [self.lbl_urn, self.lbl_version, self.lbl_type,
