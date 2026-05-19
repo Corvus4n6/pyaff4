@@ -13,11 +13,22 @@ from pyaff4.gui.workers import VerifyWorker
 PASS_COLOR = QColor("#c8e6c9")
 FAIL_COLOR = QColor("#ffcdd2")
 
+_SUMMARY_PASS_STYLE = (
+    "color: white; background-color: #2e7d32; "
+    "font-weight: bold; font-size: 14px; padding: 6px; border-radius: 4px;"
+)
+_SUMMARY_FAIL_STYLE = (
+    "color: white; background-color: #b71c1c; "
+    "font-weight: bold; font-size: 14px; padding: 6px; border-radius: 4px;"
+)
+_SUMMARY_NEUTRAL_STYLE = ""
+
 
 class VerifyTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._worker = None
+        self._fail_count = 0
         self._setup_ui()
 
     def _setup_ui(self):
@@ -61,6 +72,14 @@ class VerifyTab(QWidget):
         self.progress_bar.setRange(0, 100)
         prog_layout.addWidget(self.status_label)
         prog_layout.addWidget(self.progress_bar)
+
+        # Summary banner — hidden until verification completes
+        self.summary_label = QLabel()
+        self.summary_label.setAlignment(Qt.AlignCenter)
+        self.summary_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        self.summary_label.hide()
+        prog_layout.addWidget(self.summary_label)
+
         layout.addWidget(prog_group)
 
         # Results table
@@ -97,9 +116,12 @@ class VerifyTab(QWidget):
         path = self.path_edit.text().strip()
         if not path:
             return
+        self._fail_count = 0
         self.results_table.setRowCount(0)
         self.progress_bar.setValue(0)
         self.status_label.setText("Starting...")
+        self.summary_label.hide()
+        self.summary_label.setStyleSheet(_SUMMARY_NEUTRAL_STYLE)
         self.start_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
 
@@ -120,6 +142,8 @@ class VerifyTab(QWidget):
         self.cancel_btn.setEnabled(False)
 
     def _on_result(self, image_name, algo, stored, calculated, valid):
+        if not valid:
+            self._fail_count += 1
         row = self.results_table.rowCount()
         self.results_table.insertRow(row)
         result_text = "PASS" if valid else "FAIL"
@@ -134,8 +158,18 @@ class VerifyTab(QWidget):
 
     def _on_finished(self):
         self.current_image_label.setText("-")
-        self.status_label.setText("Verification complete.")
+        self.status_label.setText("Hashing complete.")
         self.progress_bar.setValue(100)
         self.start_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
         self._worker = None
+
+        if self._fail_count == 0:
+            self.summary_label.setText("VERIFICATION PASSED")
+            self.summary_label.setStyleSheet(_SUMMARY_PASS_STYLE)
+        else:
+            self.summary_label.setText(
+                "VERIFICATION FAILED  —  %d hash mismatch%s" % (
+                    self._fail_count, "es" if self._fail_count != 1 else ""))
+            self.summary_label.setStyleSheet(_SUMMARY_FAIL_STYLE)
+        self.summary_label.show()
