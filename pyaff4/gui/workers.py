@@ -152,7 +152,7 @@ class AddImagesWorker(QThread):
                     fsmeta = logical.FSMetadata.create(fpath)
                     with open(fpath, "rb") as f:
                         hasher = linear_hasher.StreamHasher(f, [lexicon.HASH_SHA1, lexicon.HASH_MD5])
-                        urn = volume.writeLogicalStream(fname, hasher, size)
+                        urn = volume.writeLogicalStream(fpath, hasher, size)
                         for h in hasher.hashes:
                             hh = hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
                             volume.resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
@@ -219,7 +219,7 @@ class CreateVolumeWorker(QThread):
                     fsmeta = logical.FSMetadata.create(fpath)
                     with open(fpath, "rb") as f:
                         hasher = linear_hasher.StreamHasher(f, [lexicon.HASH_SHA1, lexicon.HASH_MD5])
-                        urn = volume.writeLogicalStream(fname, hasher, size)
+                        urn = volume.writeLogicalStream(fpath, hasher, size)
                         for h in hasher.hashes:
                             hh = hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
                             resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
