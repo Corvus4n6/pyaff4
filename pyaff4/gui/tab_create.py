@@ -2,7 +2,8 @@ import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFileDialog, QProgressBar, QListWidget, QLineEdit,
-    QGroupBox, QFormLayout, QTextEdit, QMessageBox, QSizePolicy
+    QGroupBox, QFormLayout, QTextEdit, QMessageBox, QSizePolicy,
+    QComboBox
 )
 from PySide6.QtCore import Qt
 
@@ -53,9 +54,23 @@ class CreateVolumeTab(QWidget):
         add_folder_btn.clicked.connect(self._add_folder)
         remove_btn = QPushButton("Remove Selected")
         remove_btn.clicked.connect(self._remove_selected)
+        self.path_mode_combo = QComboBox()
+        self.path_mode_combo.addItems([
+            "Store full paths",
+            "Store relative paths",
+            "Strip paths",
+        ])
+        self.path_mode_combo.setToolTip(
+            "Full paths: store the complete original filesystem path\n"
+            "Relative paths: store path relative to the parent of each selected item\n"
+            "Strip paths: store filename only, no directory information"
+        )
         src_btn_row.addWidget(add_file_btn)
         src_btn_row.addWidget(add_folder_btn)
         src_btn_row.addWidget(remove_btn)
+        src_btn_row.addSpacing(12)
+        src_btn_row.addWidget(QLabel("Path storage:"))
+        src_btn_row.addWidget(self.path_mode_combo)
         src_btn_row.addStretch()
         src_layout.addWidget(self.source_list)
         src_layout.addLayout(src_btn_row)
@@ -126,7 +141,8 @@ class CreateVolumeTab(QWidget):
         self.progress_bar.setValue(0)
         self.status_label.setText("Creating container...")
 
-        self._worker = CreateVolumeWorker(output, case_name, examiner, description, sources)
+        self._worker = CreateVolumeWorker(output, case_name, examiner, description, sources,
+                                          self.path_mode_combo.currentText())
         self._worker.progress.connect(self.progress_bar.setValue)
         self._worker.status.connect(self.status_label.setText)
         self._worker.error.connect(self._on_error)

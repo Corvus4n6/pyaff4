@@ -172,28 +172,46 @@ class CreateVolumeWorker(QThread):
     finished = Signal()
     error = Signal(str)
 
-    def __init__(self, output_path, case_name, examiner, description, source_paths):
+    def __init__(self, output_path, case_name, examiner, description, source_paths,
+                 path_mode="Store full paths"):
         super().__init__()
         self.output_path = output_path
         self.case_name = case_name
         self.examiner = examiner
         self.description = description
         self.source_paths = source_paths
+        self.path_mode = path_mode
         self._cancelled = False
 
     def cancel(self):
         self._cancelled = True
 
     def _collect_files(self):
+        """Return (absolute_path, source_root) pairs."""
         result = []
         for path in self.source_paths:
             if os.path.isdir(path):
                 for root, dirs, files in os.walk(path):
                     for fname in files:
-                        result.append(os.path.join(root, fname))
+                        result.append((os.path.join(root, fname), path))
             else:
-                result.append(path)
+                result.append((path, path))
         return result
+
+    def _stored_path(self, fpath, source_root):
+        """Return the path string to store in the container based on path_mode."""
+        if self.path_mode == "Strip paths":
+            return os.path.basename(fpath)
+        elif self.path_mode == "Store relative paths":
+            norm = os.path.normpath(source_root)
+            if os.path.isdir(norm):
+                # relative to the parent of the selected folder,
+                # so the folder name itself is preserved in the stored path
+                return os.path.relpath(fpath, os.path.dirname(norm))
+            else:
+                return os.path.basename(fpath)
+        else:  # "Store full paths"
+            return fpath
 
     def run(self):
         try:
@@ -210,16 +228,17 @@ class CreateVolumeWorker(QThread):
 
                 files = self._collect_files()
                 total = len(files)
-                for i, fpath in enumerate(files):
+                for i, (fpath, source_root) in enumerate(files):
                     if self._cancelled:
                         break
                     fname = os.path.basename(fpath)
                     self.status.emit("Adding %s..." % fname)
                     size = os.path.getsize(fpath)
+                    stored_path = self._stored_path(fpath, source_root)
                     fsmeta = logical.FSMetadata.create(fpath)
                     with open(fpath, "rb") as f:
                         hasher = linear_hasher.StreamHasher(f, [lexicon.HASH_SHA1, lexicon.HASH_MD5])
-                        urn = volume.writeLogicalStream(fpath, hasher, size)
+                        urn = volume.writeLogicalStream(stored_path, hasher, size)
                         for h in hasher.hashes:
                             hh = hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
                             resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
