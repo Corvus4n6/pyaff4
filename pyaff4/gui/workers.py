@@ -144,7 +144,11 @@ class AddImagesWorker(QThread):
                     self.status.emit("Adding %s..." % fname)
                     size = os.path.getsize(fpath)
                     with open(fpath, "rb") as f:
-                        volume.writeLogicalStream(fname, f, size)
+                        hasher = linear_hasher.StreamHasher(f, [lexicon.HASH_SHA1, lexicon.HASH_MD5])
+                        urn = volume.writeLogicalStream(fname, hasher, size)
+                        for h in hasher.hashes:
+                            hh = hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
+                            volume.resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
                     self.progress.emit(int((i + 1) * 100 / total))
         except Exception as e:
             self.error.emit(str(e))
@@ -204,7 +208,11 @@ class CreateVolumeWorker(QThread):
                     self.status.emit("Adding %s..." % fname)
                     size = os.path.getsize(fpath)
                     with open(fpath, "rb") as f:
-                        volume.writeLogicalStream(fname, f, size)
+                        hasher = linear_hasher.StreamHasher(f, [lexicon.HASH_SHA1, lexicon.HASH_MD5])
+                        urn = volume.writeLogicalStream(fname, hasher, size)
+                        for h in hasher.hashes:
+                            hh = hashes.newImmutableHash(h.hexdigest(), hasher.hashToType[h])
+                            resolver.Add(urn, urn, rdfvalue.URN(lexicon.standard.hash), hh)
                     pct = int((i + 1) * 100 / max(total, 1))
                     self.progress.emit(pct)
 

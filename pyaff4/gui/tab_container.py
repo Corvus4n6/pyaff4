@@ -106,7 +106,11 @@ class ContainerTab(QWidget):
                     self.image_table.setItem(row, 0, QTableWidgetItem(str(image.name())))
                     try:
                         sz = volume.resolver.GetUnique(volume.urn, image.urn, volume.lexicon.streamSize)
-                        size_str = self._fmt_size(int(sz)) if sz else "?"
+                        if sz:
+                            size_str = self._fmt_size(int(sz))
+                        else:
+                            with volume.resolver.AFF4FactoryOpen(image.urn, version=volume.version) as s:
+                                size_str = self._fmt_size(s.Size())
                     except Exception:
                         size_str = "?"
                     self.image_table.setItem(row, 1, QTableWidgetItem(size_str))
