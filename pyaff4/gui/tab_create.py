@@ -135,6 +135,31 @@ class CreateVolumeTab(QWidget):
         examiner = self.examiner_edit.text().strip()
         description = self.description_edit.toPlainText().strip()
         sources = [self.source_list.item(i).text() for i in range(self.source_list.count())]
+        path_mode = self.path_mode_combo.currentText()
+
+        # Pre-flight: abort if any stored paths would collide
+        if sources:
+            collisions = CreateVolumeWorker.find_path_collisions(sources, path_mode)
+            if collisions:
+                lines = []
+                for stored_path, originals in sorted(collisions.items()):
+                    lines.append('"%s"  would be written by:' % stored_path)
+                    for orig in originals:
+                        lines.append('    • %s' % orig)
+                    lines.append('')
+                box = QMessageBox(self)
+                box.setIcon(QMessageBox.Warning)
+                box.setWindowTitle("Path Collision Detected")
+                box.setText(
+                    "%d stored path%s would be shared by more than one source file.\n\n"
+                    "No files have been written.\n\n"
+                    "To fix: switch to a different path storage mode, or remove the "
+                    "conflicting sources from the list."
+                    % (len(collisions), "s" if len(collisions) != 1 else "")
+                )
+                box.setDetailedText("\n".join(lines).rstrip())
+                box.exec()
+                return
 
         self.create_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)

@@ -198,20 +198,42 @@ class CreateVolumeWorker(QThread):
                 result.append((path, path))
         return result
 
-    def _stored_path(self, fpath, source_root):
-        """Return the path string to store in the container based on path_mode."""
-        if self.path_mode == "Strip paths":
+    @staticmethod
+    def compute_stored_path(fpath, source_root, path_mode):
+        """Return the path string to store in the container for the given mode."""
+        if path_mode == "Strip paths":
             return os.path.basename(fpath)
-        elif self.path_mode == "Store relative paths":
+        elif path_mode == "Store relative paths":
             norm = os.path.normpath(source_root)
             if os.path.isdir(norm):
-                # relative to the parent of the selected folder,
-                # so the folder name itself is preserved in the stored path
                 return os.path.relpath(fpath, os.path.dirname(norm))
             else:
                 return os.path.basename(fpath)
         else:  # "Store full paths"
             return fpath
+
+    def _stored_path(self, fpath, source_root):
+        return self.compute_stored_path(fpath, source_root, self.path_mode)
+
+    @classmethod
+    def find_path_collisions(cls, source_paths, path_mode):
+        """
+        Pre-flight check: return {stored_path: [source_fpaths]} for every
+        stored path that would be shared by more than one file.
+        """
+        seen = {}
+        for source_root in source_paths:
+            norm = os.path.normpath(source_root)
+            if os.path.isdir(norm):
+                for root, _dirs, files in os.walk(norm):
+                    for fname in files:
+                        fpath = os.path.join(root, fname)
+                        stored = cls.compute_stored_path(fpath, source_root, path_mode)
+                        seen.setdefault(stored, []).append(fpath)
+            else:
+                stored = cls.compute_stored_path(source_root, source_root, path_mode)
+                seen.setdefault(stored, []).append(source_root)
+        return {k: v for k, v in seen.items() if len(v) > 1}
 
     def run(self):
         try:
